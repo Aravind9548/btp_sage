@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compensation Control Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="inner">
+    <div class="brand"><span class="mark">§</span><span class="name">COMPENSATION CONTROL ROOM</span></div>
+    <nav class="pagenav">
+      <a href="index.html" class="cur">Overview</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="simulate.html">Live Run</a>
+      <a href="results.html">Results</a>
+      <a href="audit.html">Audit</a>
+      <button id="themeBtn" class="themebtn" aria-label="Toggle theme">◐</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero">
+    <p class="kicker">Saga compensation coordination benchmark &middot; B.Tech project</p>
+    <h1>Who should decide the order<br>a failed saga unwinds in?</h1>
+    <p class="lede">Four ways to coordinate rollback of a distributed transaction, run head to head:
+      a central orchestrator, naive event-driven choreography, and this project's contribution &mdash;
+      on-demand leader election paired with a dependency-graph-aware compensation scheduler.
+      <em>2,510 saga runs, zero randomness, every claim traced back to one CSV.</em></p>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2>The one-sentence result</h2></div>
+    <p style="font-size:16px; line-height:1.75; max-width:70ch; color:var(--ink-2);">
+      Path D pays a small, bounded latency premium over choreography &mdash;
+      <b style="color:var(--ink)">11&ndash;15%, flat</b> no matter how wide the rollback gets &mdash;
+      and gets <b style="color:var(--ink)">full correctness</b> for it. Orchestration pays a premium for
+      the same correctness that keeps <b style="color:var(--ink)">growing instead</b>: 1.5&times; at
+      width&nbsp;1, 2.9&times; by width&nbsp;8. Choreography is fastest and cheapest &mdash;
+      and is wrong on <b style="color:var(--critical)">every single run</b>, by construction, not by luck.
+    </p>
+
+    <div class="grid-4" style="margin-top:24px;">
+      <div class="card" data-tab="path B">
+        <div class="pathkey" style="margin-bottom:10px;"><span class="sw" style="background:var(--series-b)"></span>Choreography</div>
+        <div class="readout" style="text-align:left;"><span class="rv mono">806<span style="font-size:14px;color:var(--ink-muted);">ms</span></span></div>
+        <div style="margin-top:8px;"><span class="pill critical">✕ 0% correct</span></div>
+      </div>
+      <div class="card" data-tab="path D">
+        <div class="pathkey" style="margin-bottom:10px;"><span class="sw" style="background:var(--series-d)"></span>Graph-aware</div>
+        <div class="readout" style="text-align:left;"><span class="rv mono">913<span style="font-size:14px;color:var(--ink-muted);">ms</span></span></div>
+        <div style="margin-top:8px;"><span class="pill good">✓ 100% correct</span></div>
+      </div>
+      <div class="card" data-tab="path A">
+        <div class="pathkey" style="margin-bottom:10px;"><span class="sw" style="background:var(--series-a)"></span>Orchestration</div>
+        <div class="readout" style="text-align:left;"><span class="rv mono">1,955<span style="font-size:14px;color:var(--ink-muted);">ms</span></span></div>
+        <div style="margin-top:8px;"><span class="pill good">✓ 100% correct</span></div>
+      </div>
+      <div class="card" data-tab="ablation">
+        <div class="pathkey" style="margin-bottom:10px;"><span class="sw" style="background:var(--series-dl)"></span>D, naive LIFO</div>
+        <div class="readout" style="text-align:left;"><span class="rv mono">1,965<span style="font-size:14px;color:var(--ink-muted);">ms</span></span></div>
+        <div style="margin-top:8px;"><span class="pill good">✓ 100% correct</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2>Read the case</h2></div>
+    <div class="navcards">
+      <a class="navcard" href="architecture.html">
+        <div class="nc-num">01</div>
+        <h3>Architecture</h3>
+        <p>What a saga is, why rollback needs coordinating, and how orchestration, choreography, and
+          election-based scheduling each answer it.</p>
+        <span class="go">Read the mechanism &rarr;</span>
+      </a>
+      <a class="navcard" href="results.html">
+        <div class="nc-num">02</div>
+        <h3>Results</h3>
+        <p>The interactive sweep explorer &mdash; DAG width, cluster size, concurrency &mdash; plus the
+          ablation that isolates what actually buys Path D its speed.</p>
+        <span class="go">Explore the sweeps &rarr;</span>
+      </a>
+      <a class="navcard" href="audit.html">
+        <div class="nc-num">03</div>
+        <h3>Audit</h3>
+        <p>Two measurement bugs this benchmark caught in itself, the known-answer sanity check, and
+          why the correctness numbers never moved.</p>
+        <span class="go">See the audit trail &rarr;</span>
+      </a>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>2,510 saga runs</span><span>·</span>
+    <span>4 sweeps: dag_width · lifo_ablation · cluster_size · concurrency</span><span>·</span>
+    <span>zero RNG</span><span>·</span>
+    <span>48 workers / 12 cores</span>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>initThemeToggle("themeBtn");</script>
+</body>
+</html>

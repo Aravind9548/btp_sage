@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}SAGA.LAB — Run Console{% endblock %}
+
+{% block head %}
+<style>
+.ch{position:relative;}
+.ch .bar{position:absolute;top:0;left:0;right:0;height:2px;background:var(--edge2);}
+.ch.go{border-color:var(--amber-d)!important;}
+.ch.go .bar{background:linear-gradient(90deg,transparent,var(--amber),transparent);
+  background-size:50% 100%;animation:sweep 1.1s linear infinite;}
+@keyframes sweep{from{background-position:-50% 0}to{background-position:150% 0}}
+.ch.ok{border-color:var(--jade-d)!important;}
+.ch.ok .bar{background:var(--jade);box-shadow:0 0 10px rgba(52,211,153,.5);}
+.ch.no{border-color:var(--rose-d)!important;}
+.ch.no .bar{background:var(--rose);box-shadow:0 0 10px rgba(251,113,133,.5);}
+
+.rd{display:grid;grid-template-columns:repeat(2,1fr);border-bottom:1px solid var(--edge);}
+.rd-i{padding:10px 14px;border-right:1px solid var(--edge);}
+.rd-i:nth-child(2n){border-right:0;}
+.rd-l{font-family:var(--mono);font-size:.595rem;letter-spacing:.13em;text-transform:uppercase;color:var(--ink4);}
+.rd-v{font-family:var(--mono);font-size:.92rem;font-weight:600;margin-top:3px;
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rd-v.sm{font-size:.735rem;font-weight:500;color:var(--ink2);}
+
+.lg{background:var(--well);max-height:210px;overflow-y:auto;}
+.lg-r{display:flex;gap:10px;padding:3px 14px;font-family:var(--mono);font-size:.715rem;
+  align-items:baseline;animation:sl .18s ease both;}
+@keyframes sl{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+.lg-r:hover{background:var(--panel2);}
+.lg-t{color:var(--ink4);width:52px;text-align:right;flex-shrink:0;font-size:.675rem;
+  font-variant-numeric:tabular-nums;}
+.lg-e{flex:1;}
+.lg-s{color:var(--ink3);flex-shrink:0;font-size:.675rem;}
+.lg-e.x{color:var(--sky);} .lg-e.c{color:var(--jade);}
+.lg-e.f{color:var(--rose);font-weight:600;} .lg-e.l{color:var(--iris);font-weight:600;}
+
+.db{border-top:1px solid var(--edge);background:var(--amber-g);padding:10px 14px;}
+.db-h{font-family:var(--mono);font-size:.595rem;font-weight:600;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--amber);margin-bottom:5px;}
+.db-r{font-family:var(--mono);font-size:.705rem;color:var(--ink2);padding:1px 0;}
+
+.nil{text-align:center;padding:26px 14px;font-family:var(--mono);font-size:.715rem;color:var(--ink4);}
+.sp{width:12px;height:12px;border:1.5px solid var(--edge3);border-top-color:var(--amber);
+  border-radius:50%;animation:rot .6s linear infinite;display:inline-block;vertical-align:-2px;margin-right:8px;}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+.hs{max-height:244px;overflow-y:auto;}
+.hs-r{display:flex;align-items:center;gap:11px;padding:7px 14px;
+  border-bottom:1px solid var(--edge);font-size:.76rem;}
+.hs-r:last-child{border-bottom:none;}
+.hs-r .t{margin-left:auto;font-family:var(--mono);font-size:.69rem;color:var(--ink4);
+  font-variant-numeric:tabular-nums;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ph">
+  <div class="ph-k">02 / Run Console</div>
+  <h1>Execute a live saga</h1>
+  <p>Each run builds a real four-step saga, fails <span class="kv">Inventory</span> on purpose, then rolls back using the selected strategy. Correctness is judged afterwards by replaying the event log &mdash; not by asking the scheduler what it meant to do.</p>
+</div>
+
+<div class="spec">
+  <div class="spec-i"><div class="spec-l">Target</div><div class="spec-v" id="sp-be">detecting…</div></div>
+  <div class="spec-i"><div class="spec-l">Graph width</div><div class="spec-v">1</div></div>
+  <div class="spec-i"><div class="spec-l">Constraint</div><div class="spec-v">Payment &rarr; Notification</div></div>
+  <div class="spec-i"><div class="spec-l">Elapsed</div><div class="spec-v" id="sp-el">&mdash;</div></div>
+</div>
+
+<div class="wrap">
+
+  <div class="pn" style="margin-bottom:18px;">
+    <div class="pn-h">
+      <span class="pn-t">Controls</span>
+      <span class="pn-x" id="ctl-x">idle</span>
+    </div>
+    <div class="pn-b" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+      <button class="bt bt-sky"  onclick="go('path_a')" id="b-a">A &middot; Orchestration <kbd>A</kbd></button>
+      <button class="bt bt-rose" onclick="go('path_b')" id="b-b">B &middot; Choreography <kbd>B</kbd></button>
+      <button class="bt bt-iris" onclick="go('path_d')" id="b-d">D &middot; Election <kbd>D</kbd></button>
+      <div style="width:1px;height:26px;background:var(--edge2);margin:0 4px;"></div>
+      <button class="bt bt-go" onclick="goAll()" id="b-all">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.1v13.8L19 12 8 5.1z"/></svg>
+        Execute all <kbd>R</kbd>
+      </button>
+      <button class="bt" onclick="wipe()" style="margin-left:auto;" title="Clear results and history">Reset</button>
+    </div>
+  </div>
+
+  <div class="ca">
+    {% for k,L,nm,c in [('path_a','A','Orchestration','sky'),('path_b','B','Choreography','rose'),('path_d','D','Election + graph','iris')] %}
+    <div class="pn ch" id="c-{{k}}">
+      <div class="bar"></div>
+      <div class="pn-h">
+        <span class="bg bg-{{c}}">{{L}}</span>
+        <span class="pn-t">{{nm}}</span>
+        <span class="pn-x"><span class="bg bg-mute" id="s-{{k}}">idle</span></span>
+      </div>
+      <div class="rd">
+        <div class="rd-i"><div class="rd-l">Makespan</div><div class="rd-v" id="m-{{k}}">&mdash;</div></div>
+        <div class="rd-i"><div class="rd-l">Ordering</div><div class="rd-v" id="o-{{k}}">&mdash;</div></div>
+        <div class="rd-i"><div class="rd-l">{% if k=='path_d' %}Elected leader{% else %}Coordinator{% endif %}</div><div class="rd-v sm" id="l-{{k}}">&mdash;</div></div>
+        <div class="rd-i"><div class="rd-l">Backend</div><div class="rd-v sm" id="k-{{k}}">&mdash;</div></div>
+      </div>
+      <div class="rd" style="grid-template-columns:1fr;">
+        <div class="rd-i" style="border-right:0;">
+          <div class="rd-l">Completed &rarr; Compensated</div>
+          <div class="rd-v sm" id="cd-{{k}}">&mdash;</div>
+          <div class="rd-v sm" id="cm-{{k}}" style="color:var(--jade);">&mdash;</div>
+        </div>
+      </div>
+      <div class="lg" id="t-{{k}}"><div class="nil">awaiting execution</div></div>
+      <div id="d-{{k}}"></div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="sx"><span class="sx-n">01</span><span class="sx-t">Comparison</span><span class="sx-x" id="cmp-x">nothing executed yet</span></div>
+  <div class="pn">
+    <div class="pn-b flush">
+      <table class="tx">
+        <thead><tr><th>Path</th><th>Makespan</th><th>Ordering held</th><th>Leader</th><th>Backend</th></tr></thead>
+        <tbody id="cmp"><tr><td colspan="5" class="nil">execute a path to populate this table</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">02</span><span class="sx-t">Run Log</span><span class="sx-x">this session, newest first</span></div>
+  <div class="pn">
+    <div class="pn-b flush hs" id="hs"><div class="nil">no runs recorded</div></div>
+  </div>
+
+  <div class="mn" style="margin-top:20px;">
+    <div class="mn-s"></div>
+    <div class="mn-b">
+      <div class="mn-h">What to watch for</div>
+      <div class="mn-p">
+        Execute all three and compare the <strong>event logs</strong>, not just the makespans. Path B finishes first, but you will see <span class="u-jade">compensate_end</span> for Notification land <em>before</em> Payment's &mdash; that is the violation, in writing. Path D prints an extra <span class="u-iris">orchestrator_elected</span> line, and after it Order and Payment compensate simultaneously while Notification waits for Payment to clear. That wait is the entire point, and it costs roughly 100 ms.
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const P=['path_a','path_b','path_d'];
+const NM={path_a:'Orchestration',path_b:'Choreography',path_d:'Election + graph'};
+const CL={path_a:'sky',path_b:'rose',path_d:'iris'};
+const RK='sagalab.v2.res', HK='sagalab.v2.hist';
+
+let res=JSON.parse(sessionStorage.getItem(RK)||'{}');
+let hist=JSON.parse(sessionStorage.getItem(HK)||'[]');
+
+const $=id=>document.getElementById(id);
+function lock(v){['b-a','b-b','b-d','b-all'].forEach(i=>$(i).disabled=v);}
+
+function busy(p){
+  $('c-'+p).className='pn ch go';
+  const s=$('s-'+p);s.className='bg bg-amber';s.textContent='running';
+  $('t-'+p).innerHTML='<div class="nil"><span class="sp"></span>executing saga…</div>';
+  $('d-'+p).innerHTML='';
+}
+
+function draw(p,d){
+  $('c-'+p).className='pn ch '+(d.correct?'ok':'no');
+  const s=$('s-'+p);
+  s.className='bg '+(d.correct?'bg-jade':'bg-rose');
+  s.textContent=d.correct?'correct':'violated';
+
+  $('m-'+p).innerHTML=Math.round(d.elapsed_ms)+'<span class="mx-u" style="font-size:.72rem"> ms</span>';
+  $('o-'+p).innerHTML=d.correct?'<span class="u-jade">HELD</span>':'<span class="u-rose">BROKEN</span>';
+  $('l-'+p).textContent=d.orchestrator||(p==='path_b'?'none (choreographed)':'static');
+  $('k-'+p).textContent=d.backend;
+  $('cd-'+p).textContent=(d.completed||[]).join(' · ')||'—';
+  $('cm-'+p).textContent='↳ '+((d.compensated||[]).join(' · ')||'—');
+
+  let h='';
+  (d.timeline||[]).forEach((e,i)=>{
+    let c='lg-e';
+    if(e.event.includes('execute'))c+=' x';
+    if(e.event.includes('compensate'))c+=' c';
+    if(e.event.includes('fail'))c+=' f';
+    if(e.event.includes('elected'))c+=' l';
+    h+='<div class="lg-r" style="animation-delay:'+Math.min(i*13,400)+'ms">'
+      +'<span class="lg-t">'+e.t+'</span><span class="'+c+'">'+e.event+'</span>'
+      +'<span class="lg-s">'+e.step+'</span></div>';
+  });
+  $('t-'+p).innerHTML=h||'<div class="nil">no events</div>';
+
+  const ds=d.dynamo_state;
+  $('d-'+p).innerHTML=ds
+    ?'<div class="db"><div class="db-h">read back from dynamodb</div>'
+     +'<div class="db-r">completed&nbsp;&nbsp; ['+ds.completed.join(', ')+']</div>'
+     +'<div class="db-r">compensated ['+ds.compensated.join(', ')+']</div>'
+     +'<div class="db-r">events&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; '+ds.event_count+' rows</div></div>'
+    :'';
+
+  res[p]=d;sessionStorage.setItem(RK,JSON.stringify(res));
+  $('sp-be').textContent=d.backend;
+  cmp();
+}
+
+function cmp(){
+  let h='',n=0;
+  P.forEach(p=>{const d=res[p];if(!d)return;n++;
+    h+='<tr><td><span class="bg bg-'+CL[p]+'" style="margin-right:8px;">'+p.slice(-1).toUpperCase()+'</span>'+NM[p]+'</td>'
+      +'<td class="n">'+Math.round(d.elapsed_ms)+' ms</td>'
+      +'<td class="n b6 '+(d.correct?'u-jade':'u-rose')+'">'+(d.correct?'YES':'NO')+'</td>'
+      +'<td class="n s8">'+(d.orchestrator||'—')+'</td>'
+      +'<td class="s8 u-dim">'+d.backend+'</td></tr>';
+  });
+  if(n){$('cmp').innerHTML=h;$('cmp-x').textContent=n+' of 3 paths executed';}
+}
+
+function log(p,d){
+  hist.unshift({p:p,ms:Math.round(d.elapsed_ms),ok:d.correct,
+    at:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})});
+  hist=hist.slice(0,30);sessionStorage.setItem(HK,JSON.stringify(hist));drawLog();
+}
+function drawLog(){
+  if(!hist.length){$('hs').innerHTML='<div class="nil">no runs recorded</div>';return;}
+  $('hs').innerHTML=hist.map(r=>
+    '<div class="hs-r"><span class="bg bg-'+CL[r.p]+'">'+r.p.slice(-1).toUpperCase()+'</span>'
+    +'<span style="color:var(--ink2)">'+NM[r.p]+'</span>'
+    +'<span class="bg '+(r.ok?'bg-jade':'bg-rose')+'">'+(r.ok?'held':'broken')+'</span>'
+    +'<span class="t">'+r.ms+' ms &nbsp;·&nbsp; '+r.at+'</span></div>').join('');
+}
+
+/* live elapsed in spec strip + status line */
+let tk=null;
+function clockOn(label){
+  const t0=performance.now();
+  tk=setInterval(()=>{
+    const s=((performance.now()-t0)/1000).toFixed(1);
+    $('sp-el').textContent=s+' s';
+    $('ctl-x').textContent=label;
+    slRun('<b>'+label+'</b> &nbsp;'+s+'s');
+  },100);
+}
+function clockOff(msg){clearInterval(tk);$('ctl-x').textContent='idle';slRun(msg);}
+
+async function go(p){
+  lock(true);busy(p);clockOn('running '+p.slice(-1).toUpperCase());
+  try{
+    const d=await (await fetch('/api/run/'+p)).json();
+    draw(p,d);log(p,d);
+    $('sp-el').textContent=Math.round(d.elapsed_ms)+' ms';
+    clockOff('last: <b>'+NM[p]+'</b> '+Math.round(d.elapsed_ms)+'ms '+(d.correct?'held':'broken'));
+    toast(NM[p]+' · '+Math.round(d.elapsed_ms)+'ms · '+(d.correct?'ordering held':'ordering broken'),
+          d.correct?'ok':'err');
+  }catch(e){
+    const s=$('s-'+p);s.className='bg bg-rose';s.textContent='failed';
+    $('c-'+p).className='pn ch no';
+    $('t-'+p).innerHTML='<div class="nil">request failed — is the server running?</div>';
+    clockOff('request failed');toast('run failed for '+NM[p],'err');
+  }
+  lock(false);
+}
+
+async function goAll(){
+  lock(true);P.forEach(busy);clockOn('running all three');
+  try{
+    const data=await (await fetch('/api/run-all')).json();
+    P.forEach(p=>{draw(p,data[p]);log(p,data[p]);});
+    const bad=P.filter(p=>!data[p].correct).map(p=>p.slice(-1).toUpperCase());
+    $('sp-el').textContent=Math.round(Math.max(...P.map(p=>data[p].elapsed_ms)))+' ms';
+    clockOff(bad.length?'all three done — <b>path '+bad.join(', ')+'</b> broke ordering':'all three done — ordering held');
+    toast(bad.length?'done · path '+bad.join(', ')+' broke ordering':'done · all three held ordering',
+          bad.length?'warn':'ok');
+  }catch(e){
+    P.forEach(p=>{const s=$('s-'+p);s.className='bg bg-rose';s.textContent='failed';
+      $('c-'+p).className='pn ch no';});
+    clockOff('request failed');toast('run failed','err');
+  }
+  lock(false);
+}
+
+function wipe(){
+  res={};hist=[];sessionStorage.removeItem(RK);sessionStorage.removeItem(HK);
+  P.forEach(p=>{
+    $('c-'+p).className='pn ch';
+    const s=$('s-'+p);s.className='bg bg-mute';s.textContent='idle';
+    ['m-','o-','l-','k-','cd-','cm-'].forEach(x=>$(x+p).innerHTML='&mdash;');
+    $('t-'+p).innerHTML='<div class="nil">awaiting execution</div>';
+    $('d-'+p).innerHTML='';
+  });
+  $('cmp').innerHTML='<tr><td colspan="5" class="nil">execute a path to populate this table</td></tr>';
+  $('cmp-x').textContent='nothing executed yet';
+  $('sp-el').textContent='—';
+  drawLog();clockOff('cleared');toast('cleared','info');
+}
+
+/* restore prior results so navigating away does not lose them */
+P.forEach(p=>{if(res[p])draw(p,res[p]);});
+drawLog();
+if(!Object.keys(res).length){
+  fetch('/api/status').then(r=>r.json()).then(d=>{
+    $('sp-be').textContent=d.localstack?'DynamoDB + LocalStack':'In-Memory (Python)';
+  }).catch(()=>{});
+}
+
+window.pageKeys={a:()=>go('path_a'),b:()=>go('path_b'),d:()=>go('path_d'),r:()=>goAll()};
+</script>
+{% endblock %}

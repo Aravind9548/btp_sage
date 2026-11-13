@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}SAGA.LAB — Results{% endblock %}
+
+{% block head %}
+<style>
+.fg img{width:100%;display:block;background:#fff;cursor:zoom-in;transition:opacity .15s;}
+.fg img:hover{opacity:.86;}
+.fg-c{padding:11px 15px;border-top:1px solid var(--edge);background:var(--well);}
+.fg-t{font-size:.775rem;color:var(--ink2);line-height:1.58;}
+.fg-t b{color:var(--ink);font-weight:600;}
+.lb{position:fixed;inset:0;z-index:180;background:rgba(3,4,6,.93);backdrop-filter:blur(5px);
+  display:none;place-items:center;padding:30px;cursor:zoom-out;}
+.lb.on{display:grid;animation:fd .15s;}
+.lb img{max-width:100%;max-height:86vh;background:#fff;border:1px solid var(--edge3);
+  box-shadow:0 30px 90px rgba(0,0,0,.85);}
+.lb .cp{position:absolute;bottom:16px;left:0;right:0;text-align:center;
+  font-family:var(--mono);font-size:.715rem;letter-spacing:.06em;color:var(--ink3);}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ph">
+  <div class="ph-k">03 / Results</div>
+  <h1>What 1,500 runs actually showed</h1>
+  <p>Four sweeps, the same deterministic failure injected every time, and correctness decided after the fact by replaying the event log. Nothing here is hand-drawn &mdash; every chart regenerates from raw CSV.</p>
+</div>
+
+<div class="spec">
+  <div class="spec-i"><div class="spec-l">Total runs</div><div class="spec-v">1,500+</div></div>
+  <div class="spec-i"><div class="spec-l">Sweeps</div><div class="spec-v">4</div></div>
+  <div class="spec-i"><div class="spec-l">Figures</div><div class="spec-v">6</div></div>
+  <div class="spec-i"><div class="spec-l">Known-answer dev.</div><div class="spec-v u-jade">&lt; 4%</div></div>
+  <div class="spec-i"><div class="spec-l">Tests</div><div class="spec-v u-jade">32 / 32</div></div>
+</div>
+
+<div class="wrap">
+
+  <div class="sx"><span class="sx-n">01</span><span class="sx-t">Headline Numbers</span><span class="sx-x">all paths, all sweeps</span></div>
+  <div class="pn">
+    <div class="pn-b flush">
+      <table class="tx">
+        <thead><tr><th>Path</th><th>Mean makespan</th><th>Std dev</th><th>Correctness</th><th>Ratio to B</th><th>Scaling</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="bg bg-sky" style="margin-right:8px;">A</span>Orchestration</td>
+            <td class="n">1,954.6 ms</td><td class="n u-dim2">568.3</td>
+            <td class="n u-jade b6">100%</td><td class="n">2.43&times;</td>
+            <td class="s8 u-rose">linear in width</td>
+          </tr>
+          <tr>
+            <td><span class="bg bg-rose" style="margin-right:8px;">B</span>Choreography</td>
+            <td class="n">805.9 ms</td><td class="n u-dim2">5.2</td>
+            <td class="n u-rose b6">0%</td><td class="n u-dim2">1.00&times;</td>
+            <td class="s8 u-jade">flat</td>
+          </tr>
+          <tr style="background:var(--iris-g);">
+            <td><span class="bg bg-iris" style="margin-right:8px;">D</span><strong>Election + graph</strong></td>
+            <td class="n b6">913.0 ms</td><td class="n u-dim2">19.8</td>
+            <td class="n u-jade b6">100%</td><td class="n b6 u-iris">1.13&times;</td>
+            <td class="s8 u-jade b6">flat</td>
+          </tr>
+          <tr>
+            <td><span class="bg bg-mute" style="margin-right:8px;">D*</span>LIFO ablation</td>
+            <td class="n u-dim2">grows with width</td><td class="n u-dim2">&mdash;</td>
+            <td class="n u-jade b6">100%</td><td class="n">~2&times; @ w8</td>
+            <td class="s8 u-rose">linear, same as A</td>
+          </tr>
+        </tbody>
+        <tfoot><tr><td colspan="6">
+          The standard deviations matter as much as the means. Orchestration swings by 568 ms because its runtime is the <em>sum</em> of whatever compensations it happens to need; Path D sits at 19.8 ms because its runtime is the <em>critical path</em> through the graph, which barely moves.
+        </td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">02</span><span class="sx-t">Is the Harness Honest?</span><span class="sx-x">known-answer test</span></div>
+  <div class="pn">
+    <div class="pn-b flush">
+      <table class="tx">
+        <thead><tr><th>Path</th><th>Hand-computed</th><th>Measured</th><th>Deviation</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td><span class="bg bg-sky" style="margin-right:7px;">A</span>Orchestration</td><td class="n">1,250 ms</td><td class="n">1,252.5 ms</td><td class="n u-jade">0.2%</td><td><span class="bg bg-jade">pass</span></td></tr>
+          <tr><td><span class="bg bg-rose" style="margin-right:7px;">B</span>Choreography</td><td class="n">800 ms</td><td class="n">819.3 ms</td><td class="n u-jade">2.4%</td><td><span class="bg bg-jade">pass</span></td></tr>
+          <tr><td><span class="bg bg-iris" style="margin-right:7px;">D</span>Election + graph</td><td class="n">900 ms</td><td class="n">930.7 ms</td><td class="n u-jade">3.4%</td><td><span class="bg bg-jade">pass</span></td></tr>
+        </tbody>
+        <tfoot><tr><td colspan="5">
+          Before trusting any sweep I worked out by hand what each path <em>should</em> take at width 1, given the service durations, then checked the harness against it. Everything lands within 4%, the residue being thread scheduling and event-log writes. Width = 1, n = 50 per path.
+        </td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">03</span><span class="sx-t">The Four Sweeps</span><span class="sx-x">click any figure to enlarge</span></div>
+  <div class="c2">
+    <div class="pn fg">
+      <div class="pn-h"><span class="pn-t">Figure 01</span><span class="pn-x">makespan vs. width</span></div>
+      <img src="/slides/fig1_makespan_vs_width.png" alt="Makespan vs DAG width" onclick="zoom(this,'FIG 01 — makespan vs. DAG width')">
+      <div class="fg-c"><div class="fg-t"><b>The headline result.</b> A climbs in a straight line because it never overlaps anything; B and D stay flat because both compensate in parallel. D tracks B with a constant gap rather than a widening one.</div></div>
+    </div>
+    <div class="pn fg">
+      <div class="pn-h"><span class="pn-t">Figure 02</span><span class="pn-x">correctness rate</span></div>
+      <img src="/slides/fig2_correctness.png" alt="Correctness rate" onclick="zoom(this,'FIG 02 — correctness rate by path')">
+      <div class="fg-c"><div class="fg-t"><b>Correctness rate.</b> Choreography fails the ordering check on every single run &mdash; not occasionally, 0% across the board. Everything else is perfect. This is the chart that makes the tradeoff concrete.</div></div>
+    </div>
+    <div class="pn fg" style="border-color:var(--iris-d);">
+      <div class="pn-h" style="background:var(--iris-g);border-color:var(--iris-d);"><span class="pn-t u-iris">Figure 03</span><span class="pn-x">ablation</span></div>
+      <img src="/slides/fig3_ablation.png" alt="Ablation study" onclick="zoom(this,'FIG 03 — ablation: LIFO vs. graph-aware dispatch')">
+      <div class="fg-c"><div class="fg-t"><b>Ablation &mdash; my favourite chart here.</b> Same election mechanism, only the dispatch order swapped. LIFO stays correct but comes out 194% slower at width 8. So the election is not what makes Path D fast; the <b>graph-aware scheduler</b> is.</div></div>
+    </div>
+    <div class="pn fg">
+      <div class="pn-h"><span class="pn-t">Figure 04</span><span class="pn-x">correctness premium</span></div>
+      <img src="/slides/fig4_premium.png" alt="Correctness premium" onclick="zoom(this,'FIG 04 — premium paid over choreography')">
+      <div class="fg-c"><div class="fg-t"><b>What correctness costs.</b> Path D's overhead against choreography as width grows. It stays near 13% instead of widening &mdash; a bounded premium, which is the part that makes it defensible in practice.</div></div>
+    </div>
+    <div class="pn fg">
+      <div class="pn-h"><span class="pn-t">Figure 05</span><span class="pn-x">cluster size 4&ndash;16</span></div>
+      <img src="/slides/fig5_makespan_vs_cluster_size.png" alt="Makespan vs cluster size" onclick="zoom(this,'FIG 05 — makespan vs. cluster size')">
+      <div class="fg-c"><div class="fg-t"><b>Does the election become the bottleneck?</b> Scaling from 4 to 16 services, all racing for the same lease. It does not &mdash; contention is exactly one conditional write per service, and the loser learns immediately.</div></div>
+    </div>
+    <div class="pn fg">
+      <div class="pn-h"><span class="pn-t">Figure 06</span><span class="pn-x">concurrency degradation</span></div>
+      <img src="/slides/fig6_concurrency_degradation.png" alt="Concurrency degradation" onclick="zoom(this,'FIG 06 — concurrency degradation ratio')">
+      <div class="fg-c"><div class="fg-t"><b>Overlapping sagas.</b> Ratio of makespan under load to makespan in isolation. Hovers near 1.0, so concurrent sagas do not interfere &mdash; each elects its own leader on its own lease key.</div></div>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">04</span><span class="sx-t">Generated Tables</span><span class="sx-x">straight out of the analysis script</span></div>
+  <div class="c2">
+    <div class="pn fg">
+      <div class="pn-h"><span class="pn-t">Table 01</span><span class="pn-x">summary statistics</span></div>
+      <img src="/slides/table1_summary.png" alt="Summary statistics" onclick="zoom(this,'TABLE 01 — full summary statistics')">
+      <div class="fg-c"><div class="fg-t">Full summary statistics across every sweep, as rendered for the report.</div></div>
+    </div>
+    <div class="pn fg">
+      <div class="pn-h"><span class="pn-t">Table 02</span><span class="pn-x">known-answer</span></div>
+      <img src="/slides/table2_knownanswer.png" alt="Known-answer validation" onclick="zoom(this,'TABLE 02 — known-answer validation')">
+      <div class="fg-c"><div class="fg-t">Known-answer validation, the same check shown above in HTML.</div></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="lb" id="lb" onclick="this.classList.remove('on')">
+  <img id="lb-i" src="" alt=""><div class="cp" id="lb-c"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function zoom(img,cap){
+  document.getElementById('lb-i').src=img.src;
+  document.getElementById('lb-c').textContent=cap+'   ·   click anywhere to close';
+  document.getElementById('lb').classList.add('on');
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')document.getElementById('lb').classList.remove('on');
+});
+</script>
+{% endblock %}

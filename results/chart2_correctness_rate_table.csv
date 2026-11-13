@@ -1,0 +1,5 @@
+path,correctness_rate
+path_a,1.0
+path_b,0.0
+path_d,1.0
+path_d_lifo,1.0

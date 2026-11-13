@@ -1,0 +1,9 @@
+# Full local toolchain: benchmark analysis, tests, and the cloud layer.
+#   pip install -r requirements-dev.txt
+-r requirements.txt
+
+pandas
+matplotlib
+pytest
+boto3
+kafka-python-ng

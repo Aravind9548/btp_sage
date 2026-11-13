@@ -1,0 +1,35 @@
+# Keeps the upload small. The virtualenv alone is ~12,900 files and will OOM
+# the Vercel CLI during file collection if it is not excluded.
+.venv
+.venv/**
+__pycache__
+__pycache__/**
+*.pyc
+.pytest_cache
+.pytest_cache/**
+
+# Credentials — never upload these
+.env
+.env.*
+.vercel
+.vercel/**
+
+# Analysis artefacts and the local-only toolchain
+results
+results/**
+dashboard
+dashboard/**
+tests
+tests/**
+run_experiments.py
+make_slides.py
+make_pptx.py
+demo.py
+cloud_demo.py
+cloud_smoke_test.py
+cloud_setup.ps1
+
+# Large binaries and standalone reports the app does not serve
+*.pptx
+report.html
+architecture_diagrams.html

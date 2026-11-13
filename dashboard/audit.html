@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compensation Control Room — Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="inner">
+    <div class="brand"><span class="mark">§</span><span class="name">COMPENSATION CONTROL ROOM</span></div>
+    <nav class="pagenav">
+      <a href="index.html">Overview</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="simulate.html">Live Run</a>
+      <a href="results.html">Results</a>
+      <a href="audit.html" class="cur">Audit</a>
+      <button id="themeBtn" class="themebtn" aria-label="Toggle theme">◐</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero" style="padding-top:40px;">
+    <p class="kicker">Audit</p>
+    <h1>Trust the numbers, not the pitch</h1>
+    <p class="lede">Two measurement bugs this benchmark caught in its own plumbing &mdash; both timing
+      artifacts, neither one touching a correctness result. <em>The harness was audited, not just run.</em></p>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2>Two findings</h2></div>
+
+    <div class="finding">
+      <div class="fnum">1</div>
+      <div>
+        <h3>EventBus contention inflated Path B by 6&times;</h3>
+        <p>An earlier version shared one <span class="mono">EventBus</span> instance &mdash; and its fixed
+          32-worker thread pool &mdash; across every concurrently-running saga in a sweep. Since
+          <span class="mono">EventBus</span> topics are already saga_id-scoped, sharing the object bought
+          nothing, but its bounded pool became a point of contention: hundreds of concurrent Path B sagas
+          queued behind each other for the same 32 threads.</p>
+        <p>Caught by noticing Path B's numbers moved when the <i>outer</i> sweep's unrelated concurrency
+          setting changed, despite Path B's own logic being untouched &mdash; a signal that some resource
+          was shared across unrelated runs. Fixed with a fresh <span class="mono">EventBus</span> per saga.</p>
+        <span class="callout">~800ms &rarr; ~5,270ms, purely from benchmark plumbing, not from choreography itself</span>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fnum">2</div>
+      <div>
+        <h3>200 worker threads on 12 cores was quietly measuring contention, not coordination</h3>
+        <p><span class="mono">run_experiments.py</span> ran every sweep against one
+          <span class="mono">ThreadPoolExecutor(max_workers=200)</span> on a 12-logical-core machine.
+          With Path D's nested election/dispatch threads on top, peak concurrent OS threads reached the
+          high hundreds &mdash; roughly 15&ndash;20&times; oversubscribed.</p>
+        <p>Not just noise: DAG width 8's mean makespan came out ~1,800ms against a ~950&ndash;1,070ms
+          baseline at every other width in the <i>same run</i> &mdash; a real regime shift &mdash; and the
+          coordination-overhead-ratio metric hit individual spikes as high as 54%.</p>
+        <span class="callout">Dropping to 48 workers erased the width-8 outlier and cut overhead to
+          consistently under 1.5%, at <b>unchanged</b> wall time (~130s either way) &mdash; proof the extra
+          threads bought nothing but contention.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2>Why B's 0% survives scrutiny</h2></div>
+    <p class="block-dek">It would be a mistake to present "choreography violated ordering in 100% of
+      trials" as an empirical rate &mdash; with fixed, non-random configuration, that's arithmetic, not
+      measurement. The interesting question is <i>why</i> it's deterministic.</p>
+    <div class="card" data-tab="investigation">
+      <p style="font-size:13.5px; color:var(--ink-2); line-height:1.8; margin:0 0 12px;">
+        The first-pass guess &mdash; "Notification's 100ms compensation is simply shorter than Payment's
+        800ms" &mdash; turned out to be wrong, not just informal. Notification's own duration never
+        appears in the check at all; only <i>when it starts</i> matters. Sweeping it from 1ms to 3,200ms
+        changed nothing: 0% at every value.</p>
+      <p style="font-size:13.5px; color:var(--ink-2); line-height:1.8; margin:0;">
+        Sweeping Payment's duration instead &mdash; down to 0ms &mdash; also stayed at 0%. The real cause:
+        <span class="mono">EventBus</span> dispatches subscribers in subscription order, which follows
+        forward execution order, so Notification's reactor always starts fractionally before Payment's.
+        Given that, Payment's finish can never precede its own start, which already follows Notification's
+        start &mdash; <b style="color:var(--ink)">logically guaranteed, not merely likely.</b> Reversing
+        dispatch order did surface a genuine crossover, but only inside a sub-millisecond band with no
+        relationship to real service durations.</p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2>Known-answer check</h2></div>
+    <p class="block-dek">Expected vs. measured mean makespan at DAG width 1, averaged over 50 runs &mdash;
+      a sanity check against hand-computed values from <span class="mono">config.py</span>. Confirms the
+      EventBus fix helped only Path B: A never had a shared pool, D's executors were always fresh.</p>
+    <div class="card" data-tab="table 2">
+      <div class="tablewrap">
+        <table class="kt tab-nums">
+          <thead><tr><th>Path</th><th>Expected (ms)</th><th>Measured (ms)</th><th>Deviation</th></tr></thead>
+          <tbody id="knownAnswerBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>All correctness numbers (0% / 100% / 100% / 100%) were unaffected throughout both findings</span><span>·</span>
+    <span>correctness is structural, never timing-dependent</span>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+  (function(){
+    var el = document.getElementById("knownAnswerBody");
+    ["path_a","path_b","path_d"].forEach(function(key){
+      var p = PATHS[key], t = TABLE2[key];
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + p.label + "</td><td>" + fmt(t.expected) + "</td><td>" + fmt(t.measured,1) + "</td>" +
+        '<td class="dev-good">+' + t.deviation_pct.toFixed(2) + "%</td>";
+      el.appendChild(tr);
+    });
+    initThemeToggle("themeBtn");
+  })();
+</script>
+</body>
+</html>

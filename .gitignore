@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# results/ is committed — it is the raw experiment data behind every chart
+*.egg-info/
+.env
+
+.vercel
+.env*

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}SAGA.LAB — Overview{% endblock %}
+
+{% block content %}
+<div class="ph">
+  <div class="ph-k">01 / Overview</div>
+  <h1>Saga compensation, without picking a side</h1>
+  <p>A benchmark comparing orchestration, choreography, and a hybrid that elects a coordinator only once something has failed &mdash; then rolls back in parallel without breaking dependency order.</p>
+</div>
+
+<div class="spec">
+  <div class="spec-i"><div class="spec-l">Runs</div><div class="spec-v">1,500+</div></div>
+  <div class="spec-i"><div class="spec-l">Sweeps</div><div class="spec-v">4</div></div>
+  <div class="spec-i"><div class="spec-l">Strategies</div><div class="spec-v">4</div></div>
+  <div class="spec-i"><div class="spec-l">Services / saga</div><div class="spec-v">4</div></div>
+  <div class="spec-i"><div class="spec-l">Fault</div><div class="spec-v u-rose">Inventory</div></div>
+  <div class="spec-i"><div class="spec-l">Verifier</div><div class="spec-v">event log only</div></div>
+</div>
+
+<div class="wrap">
+
+  <div class="r3" style="margin-bottom:22px;">
+    <div class="mx">
+      <div class="mx-v u-sky" id="m1">0<span class="mx-u">+</span></div>
+      <div class="mx-l">Saga runs executed</div>
+      <div class="mx-d">Four sweeps, deterministic fault injection, every run verified independently.</div>
+    </div>
+    <div class="mx">
+      <div class="mx-v u-jade" id="m2">0<span class="mx-u">%</span></div>
+      <div class="mx-l">Path D correctness</div>
+      <div class="mx-d">Judged from the event log alone &mdash; never from what the scheduler intended.</div>
+    </div>
+    <div class="mx">
+      <div class="mx-v u-iris" id="m3">0<span class="mx-u">%</span></div>
+      <div class="mx-l">Premium over choreography</div>
+      <div class="mx-d">What correctness costs. Bounded, and it does not grow with the graph.</div>
+    </div>
+  </div>
+
+  <div class="mn">
+    <div class="mn-s"></div>
+    <div class="mn-b">
+      <div class="mn-h">Why I built this</div>
+      <div class="mn-p">
+        Every paper I read framed this as a binary &mdash; <strong>orchestration or choreography</strong>, pick one and live with the tradeoff. That never sat right with me. The coordinator is only useful during a rollback, so why pay for it the other 99% of the time? <strong>Path D</strong> is my answer: stay fully choreographed until something breaks, then elect a leader on the spot and let it schedule compensations against the dependency graph. The numbers below are what came out.
+      </div>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">01</span><span class="sx-t">The Problem</span></div>
+  <div class="pn">
+    <div class="pn-b">
+      <p class="lead">
+        When a distributed saga fails partway through, the steps that already succeeded have to be <strong>compensated</strong> &mdash; refund the card, release the stock, and so on. The catch is that compensations are not independent. Some have to happen <strong>in a particular order</strong>.
+      </p>
+      <div style="background:var(--well);border:1px solid var(--edge);padding:14px 17px;margin-top:14px;
+                  font-family:var(--mono);font-size:.79rem;color:var(--ink2);">
+        <span class="u-amber b6">CONSTRAINT</span> &nbsp; compensate(<span class="u-sky">Payment</span>) must finish
+        <span class="u-rose b6">BEFORE</span> compensate(<span class="u-sky">Notification</span>) starts
+      </div>
+      <p class="s8 u-dim" style="margin-top:12px;line-height:1.62;">
+        Send the &ldquo;your order is cancelled&rdquo; email before the refund actually lands and you have told the customer something that is not true yet. That is the ordering constraint this whole project is about.
+      </p>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">02</span><span class="sx-t">Three Strategies</span><span class="sx-x">one of them is mine</span></div>
+  <div class="c3">
+    <div class="pn">
+      <div class="pn-h"><span class="bg bg-sky">Path A</span><span class="pn-t">Orchestration</span></div>
+      <div class="pn-b">
+        <p class="s8" style="color:var(--ink2);line-height:1.68;">
+          A central coordinator walks the completed steps backwards and compensates them <strong style="color:var(--ink)">one at a time</strong>. Ordering is trivially safe because nothing overlaps &mdash; which is also why it is slow. Add steps, add latency.
+        </p>
+        <div style="display:flex;gap:6px;margin-top:13px;">
+          <span class="bg bg-jade">correct</span><span class="bg bg-rose">slow</span>
+        </div>
+      </div>
+    </div>
+    <div class="pn">
+      <div class="pn-h"><span class="bg bg-rose">Path B</span><span class="pn-t">Choreography</span></div>
+      <div class="pn-b">
+        <p class="s8" style="color:var(--ink2);line-height:1.68;">
+          No coordinator at all. Every service hears the failure and compensates itself immediately. Beautifully decoupled and the fastest option by a wide margin &mdash; but it has <strong style="color:var(--ink)">no way to express ordering</strong>, so it breaks the constraint every single time.
+        </p>
+        <div style="display:flex;gap:6px;margin-top:13px;">
+          <span class="bg bg-rose">0% correct</span><span class="bg bg-jade">fast</span>
+        </div>
+      </div>
+    </div>
+    <div class="pn" style="border-color:var(--iris-d);box-shadow:0 0 30px rgba(167,139,250,.06);">
+      <div class="pn-h" style="background:var(--iris-g);border-color:var(--iris-d);">
+        <span class="bg bg-iris">Path D</span><span class="pn-t">Election + graph</span>
+      </div>
+      <div class="pn-b">
+        <p class="s8" style="color:var(--ink2);line-height:1.68;">
+          Choreographed while things are fine. The moment a step fails, every service <strong style="color:var(--ink)">races for a lease</strong>; exactly one wins. The winner reads the compensation graph and fires independent steps in parallel, holding back only those that genuinely must wait.
+        </p>
+        <div style="display:flex;gap:6px;margin-top:13px;flex-wrap:wrap;">
+          <span class="bg bg-jade">correct</span><span class="bg bg-jade">fast</span><span class="bg bg-iris">my contribution</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">03</span><span class="sx-t">Results at a Glance</span><span class="sx-x">mean of 1,500+ runs</span></div>
+  <div class="pn">
+    <div class="pn-b flush">
+      <table class="tx">
+        <thead><tr><th>Strategy</th><th>Mean makespan</th><th>Correctness</th><th>vs. choreography</th><th>Scaling behaviour</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="bg bg-sky" style="margin-right:8px;">A</span>Orchestration</td>
+            <td class="n">1,955 ms</td><td class="n u-jade b6">100%</td>
+            <td class="n">2.43&times; slower</td><td class="s8 u-rose">linear in graph width</td>
+          </tr>
+          <tr>
+            <td><span class="bg bg-rose" style="margin-right:8px;">B</span>Choreography</td>
+            <td class="n">806 ms</td><td class="n u-rose b6">0%</td>
+            <td class="n u-dim2">baseline</td><td class="s8 u-jade">flat</td>
+          </tr>
+          <tr style="background:var(--iris-g);">
+            <td><span class="bg bg-iris" style="margin-right:8px;">D</span><strong>Election + graph</strong></td>
+            <td class="n b6">913 ms</td><td class="n u-jade b6">100%</td>
+            <td class="n b6 u-iris">1.13&times;</td><td class="s8 u-jade b6">flat</td>
+          </tr>
+        </tbody>
+        <tfoot><tr><td colspan="5">
+          Read the bottom row against the middle one: Path D gives up 13% of choreography's speed and buys correctness with it. Read it against the top row: it is <strong style="color:var(--ink2)">2.1&times; faster than orchestration</strong> at the same correctness, and unlike orchestration it does not degrade as the graph widens.
+        </td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">04</span><span class="sx-t">Where to Start</span></div>
+  <div class="r3" style="margin-bottom:20px;">
+    <a href="/demo" class="mx" style="display:block;">
+      <span class="bg bg-iris">step 1</span>
+      <div class="b6 s9" style="margin-top:11px;">Run it yourself &rarr;</div>
+      <div class="mx-d">Fire all three paths live against DynamoDB and watch the timelines diverge. Takes about four seconds.</div>
+    </a>
+    <a href="/results" class="mx" style="display:block;">
+      <span class="bg bg-sky">step 2</span>
+      <div class="b6 s9" style="margin-top:11px;">Check the numbers &rarr;</div>
+      <div class="mx-d">Six charts, the ablation that isolates <em>why</em> Path D is fast, and a known-answer test proving the harness is honest.</div>
+    </a>
+    <a href="/architecture" class="mx" style="display:block;">
+      <span class="bg bg-amber">step 3</span>
+      <div class="b6 s9" style="margin-top:11px;">See the AWS mapping &rarr;</div>
+      <div class="mx-d">The same coordination code on DynamoDB conditional writes, SNS/SQS and Kafka &mdash; no edits to the benchmark.</div>
+    </a>
+  </div>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <a href="/demo" class="bt bt-go">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.1v13.8L19 12 8 5.1z"/></svg>
+      Open run console
+    </a>
+    <a href="/results" class="bt bt-sky">View charts</a>
+    <a href="/about" class="bt">Related work</a>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function ramp(id,to,suf){
+  const el=document.getElementById(id),t0=performance.now(),dur=900;
+  (function f(now){
+    const p=Math.min((now-t0)/dur,1),e=1-Math.pow(1-p,3);
+    el.innerHTML=Math.round(to*e).toLocaleString()+'<span class="mx-u">'+suf+'</span>';
+    if(p<1)requestAnimationFrame(f);
+  })(t0);
+}
+ramp('m1',1500,'+');ramp('m2',100,'%');ramp('m3',13,'%');
+</script>
+{% endblock %}

@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}SAGA.LAB — System{% endblock %}
+
+{% block head %}
+<style>
+.ly{border:1px solid var(--edge);background:var(--panel);}
+.ly-h{display:flex;align-items:center;gap:9px;padding:9px 14px;border-bottom:1px solid var(--edge);
+  font-family:var(--mono);font-size:.645rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;}
+.ly-h .ix{font-size:.6rem;opacity:.55;}
+.ly-b{padding:14px;display:flex;gap:1px;flex-wrap:wrap;background:var(--edge);}
+.nd{flex:1;min-width:142px;background:var(--panel);padding:11px 13px;transition:background .15s;}
+.nd:hover{background:var(--panel2);}
+.nd-t{font-family:var(--mono);font-size:.775rem;font-weight:600;}
+.nd-s{font-family:var(--mono);font-size:.665rem;color:var(--ink4);margin-top:3px;}
+.nd-m{font-family:var(--mono);font-size:.645rem;font-weight:500;margin-top:6px;}
+.dn{display:grid;place-items:center;padding:5px 0;color:var(--ink4);}
+.dn svg{width:15px;height:15px;}
+.st{display:flex;gap:13px;padding:14px;border-bottom:1px solid var(--edge);}
+.st:last-child{border-bottom:none;}
+.st-n{width:24px;height:24px;flex-shrink:0;display:grid;place-items:center;
+  font-family:var(--mono);font-size:.675rem;font-weight:700;}
+.st-t{font-family:var(--mono);font-size:.76rem;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;}
+.st-b{font-size:.805rem;color:var(--ink2);margin-top:5px;line-height:1.65;}
+.wv{font-family:var(--mono);font-size:.735rem;color:var(--ink);background:var(--well);
+  border:1px solid var(--edge);padding:7px 11px;margin-top:7px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ph">
+  <div class="ph-k">04 / System</div>
+  <h1>Three layers, one hard rule</h1>
+  <p>The benchmark never knows whether it is talking to memory or to AWS. Everything cloud-shaped is injected from outside, which is the only reason the comparison is fair.</p>
+</div>
+
+<div class="spec">
+  <div class="spec-i"><div class="spec-l">Layers</div><div class="spec-v">3</div></div>
+  <div class="spec-i"><div class="spec-l">Cloud wrappers</div><div class="spec-v">5</div></div>
+  <div class="spec-i"><div class="spec-l">Edits to saga_bench</div><div class="spec-v u-jade">0</div></div>
+  <div class="spec-i"><div class="spec-l">Event-bus backends</div><div class="spec-v">2</div></div>
+  <div class="spec-i"><div class="spec-l">Containers</div><div class="spec-v">2</div></div>
+</div>
+
+<div class="wrap">
+
+  <div class="mn" style="margin-bottom:20px;">
+    <div class="mn-s"></div>
+    <div class="mn-b">
+      <div class="mn-h">The constraint I set myself</div>
+      <div class="mn-p">
+        <strong>Zero changes to <span class="kv">saga_bench/</span> to go cloud.</strong> The three path functions already took their event log, saga store and lease store as optional arguments, so the cloud layer is just four classes implementing the same methods, passed in instead. If the DynamoDB wrappers vanished tomorrow the benchmark would still run &mdash; and that is what makes the numbers trustworthy, because both modes execute literally the same coordination code.
+      </div>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">01</span><span class="sx-t">Layer Stack</span></div>
+
+  <div class="ly">
+    <div class="ly-h u-sky" style="background:var(--sky-g);"><span class="ix">01</span>Services layer</div>
+    <div class="ly-b">
+      <div class="nd"><div class="nd-t">Order</div><div class="nd-s">100ms / 150ms</div></div>
+      <div class="nd"><div class="nd-t">Payment</div><div class="nd-s">300ms / 800ms</div><div class="nd-m u-amber">slowest to undo</div></div>
+      <div class="nd"><div class="nd-t">Inventory</div><div class="nd-s">200ms / 200ms</div><div class="nd-m u-rose">fails on purpose</div></div>
+      <div class="nd"><div class="nd-t">Notification</div><div class="nd-s">50ms / 100ms</div><div class="nd-m u-iris">waits on Payment</div></div>
+    </div>
+    <div style="padding:10px 14px;border-top:1px solid var(--edge);background:var(--well);">
+      <p class="s8 u-dim">Durations are <span class="kv">execute / compensate</span>. Payment being expensive to undo is exactly why holding Notification behind it is what costs Path D its 13%.</p>
+    </div>
+  </div>
+
+  <div class="dn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16M6 14l6 6 6-6"/></svg></div>
+
+  <div class="ly">
+    <div class="ly-h u-jade" style="background:var(--jade-g);"><span class="ix">02</span>Infrastructure layer &mdash; swappable</div>
+    <div class="ly-b">
+      <div class="nd"><div class="nd-t">EventBus</div><div class="nd-s">pub/sub + threadpool</div><div class="nd-m u-amber">&rarr; SNS+SQS / Kafka</div></div>
+      <div class="nd"><div class="nd-t">SagaStore</div><div class="nd-s">completed / compensated</div><div class="nd-m u-amber">&rarr; DynamoDB string sets</div></div>
+      <div class="nd"><div class="nd-t">LeaseStore</div><div class="nd-s">conditional write + TTL</div><div class="nd-m u-amber">&rarr; DynamoDB cond. put</div></div>
+      <div class="nd"><div class="nd-t">EventLog</div><div class="nd-s">append-only timeline</div><div class="nd-m u-amber">&rarr; DynamoDB composite key</div></div>
+    </div>
+  </div>
+
+  <div class="dn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16M6 14l6 6 6-6"/></svg></div>
+
+  <div class="ly">
+    <div class="ly-h u-iris" style="background:var(--iris-g);"><span class="ix">03</span>Coordination strategies &mdash; the thing under test</div>
+    <div class="ly-b">
+      <div class="nd" style="border-top:2px solid var(--sky);">
+        <div class="nd-t u-sky">Path A &middot; Orchestration</div>
+        <div class="nd-s" style="line-height:1.55;">Permanent coordinator, sequential reverse order. Safe by construction, slow by construction.</div>
+      </div>
+      <div class="nd" style="border-top:2px solid var(--rose);">
+        <div class="nd-t u-rose">Path B &middot; Choreography</div>
+        <div class="nd-s" style="line-height:1.55;">No coordinator. Everyone compensates at once. No way to express &ldquo;wait for Payment&rdquo;.</div>
+      </div>
+      <div class="nd" style="border-top:2px solid var(--iris);background:var(--iris-g);">
+        <div class="nd-t u-iris">Path D &middot; Election + graph</div>
+        <div class="nd-s" style="line-height:1.55;">Choreographed until failure, then one elected leader schedules against the dependency graph.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">02</span><span class="sx-t">AWS Mapping</span><span class="sx-x">drop-in, injected via kwargs</span></div>
+  <div class="pn">
+    <div class="pn-b flush">
+      <table class="tx">
+        <thead><tr><th>In-memory (Python)</th><th></th><th>Cloud wrapper</th><th>Backed by</th></tr></thead>
+        <tbody>
+          <tr><td class="n">LeaseStore</td><td class="u-dim2" style="text-align:center;">&rarr;</td><td class="n u-sky">DynamoLeaseStore</td><td><span class="bg bg-amber">DynamoDB</span> <span class="s8 u-dim">conditional put on <span class="n">attribute_not_exists</span></span></td></tr>
+          <tr><td class="n">SagaStore</td><td class="u-dim2" style="text-align:center;">&rarr;</td><td class="n u-sky">DynamoSagaStore</td><td><span class="bg bg-amber">DynamoDB</span> <span class="s8 u-dim">string sets via <span class="n">ADD</span></span></td></tr>
+          <tr><td class="n">EventLog</td><td class="u-dim2" style="text-align:center;">&rarr;</td><td class="n u-sky">DynamoEventLog</td><td><span class="bg bg-amber">DynamoDB</span> <span class="s8 u-dim">composite key (saga_id, ts)</span></td></tr>
+          <tr><td class="n">EventBus</td><td class="u-dim2" style="text-align:center;">&rarr;</td><td class="n u-sky">SnsSqsEventBus</td><td><span class="bg bg-amber">SNS</span> <span class="bg bg-amber">SQS</span> <span class="s8 u-dim">topic per event, queue per subscriber</span></td></tr>
+          <tr><td class="n">EventBus</td><td class="u-dim2" style="text-align:center;">&rarr;</td><td class="n u-sky">KafkaEventBus</td><td><span class="bg bg-iris">Kafka</span> <span class="s8 u-dim">manual partition assignment</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">03</span><span class="sx-t">Path D, Step by Step</span><span class="sx-x">what one failed saga actually does</span></div>
+  <div class="pn">
+    <div class="pn-b flush">
+      <div class="st">
+        <div class="st-n bg-sky">1</div>
+        <div>
+          <div class="st-t u-sky">Forward execution, fully choreographed</div>
+          <div class="st-b">Order &rarr; Notification &rarr; Payment all succeed, then <span class="u-rose b6">Inventory fails</span>. Up to this instant there is no coordinator anywhere in the system and no lease has been touched &mdash; that is the zero-overhead claim, and it is why the happy path costs nothing.</div>
+        </div>
+      </div>
+      <div class="st">
+        <div class="st-n bg-amber">2</div>
+        <div>
+          <div class="st-t u-amber">On-demand leader election</div>
+          <div class="st-b">Every service that hears the failure tries to write a lease row keyed by saga id, conditioned on <span class="kv">attribute_not_exists(saga_id)</span>. DynamoDB resolves the race for us: exactly one write succeeds, everyone else gets <span class="n">ConditionalCheckFailedException</span> and stands down. No consensus protocol, no quorum &mdash; the database already provides the atomic primitive.</div>
+        </div>
+      </div>
+      <div class="st">
+        <div class="st-n bg-jade">3</div>
+        <div>
+          <div class="st-t u-jade">Graph-aware dispatch</div>
+          <div class="st-b">The winner reads the compensation graph and compensates in waves rather than in a line:</div>
+          <div class="wv">wave 1 &nbsp; Order <span class="u-dim">(150ms)</span> &nbsp;&#8741;&nbsp; Payment <span class="u-dim">(800ms)</span></div>
+          <div class="wv">wave 2 &nbsp; Notification <span class="u-dim">(100ms)</span> &nbsp;<span class="u-amber">&larr; released only once Payment clears</span></div>
+          <div class="st-b" style="margin-top:7px;">Total is <strong style="color:var(--ink)">900 ms</strong> &mdash; the critical path &mdash; instead of 1,050 ms summed.</div>
+        </div>
+      </div>
+      <div class="st">
+        <div class="st-n bg-iris">4</div>
+        <div>
+          <div class="st-t u-iris">If the leader dies mid-rollback</div>
+          <div class="st-b">The lease carries a TTL, so it eventually expires and a surviving service acquires it. The new leader reads SagaStore to see which compensations already landed and resumes from there. <span class="kv">mark_compensated()</span> is itself conditional, so a duplicate attempt returns false instead of refunding twice &mdash; idempotency is enforced by the database, not by hoping.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">04</span><span class="sx-t">What Is Running Right Now</span></div>
+  <div class="r3">
+    <div class="mx">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span class="n b6" style="font-size:.84rem;">LocalStack 3.8.1</span><span class="bg bg-jade">free tier</span>
+      </div>
+      <div class="mx-d">DynamoDB, SNS and SQS emulated locally on port <span class="kv">4566</span>. Real AWS API calls with real conditional-write semantics &mdash; no AWS account, no credits.</div>
+    </div>
+    <div class="mx">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span class="n b6" style="font-size:.84rem;">Apache Kafka 3.7</span><span class="bg bg-iris">KRaft</span>
+      </div>
+      <div class="mx-d">Port <span class="kv">9092</span>, no Zookeeper. Consumers use manual partition assignment instead of consumer groups &mdash; group rebalance took seconds, and the demo publishes immediately after subscribing.</div>
+    </div>
+    <div class="mx">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span class="n b6" style="font-size:.84rem;">This console</span><span class="bg bg-sky">Flask</span>
+      </div>
+      <div class="mx-d">Port <span class="kv">5000</span>. Probes LocalStack on every request and falls back to in-memory stores when it is down, so a live demo never hard-fails in front of an audience.</div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

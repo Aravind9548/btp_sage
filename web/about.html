@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}SAGA.LAB — Paper{% endblock %}
+
+{% block head %}
+<style>
+.id{display:flex;gap:16px;align-items:flex-start;padding:18px;}
+.id-av{width:48px;height:48px;flex-shrink:0;display:grid;place-items:center;
+  background:var(--well);border:1px solid var(--edge3);
+  font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--jade);}
+.id-n{font-family:var(--mono);font-size:1rem;font-weight:600;letter-spacing:.03em;}
+.id-s{font-family:var(--mono);font-size:.675rem;color:var(--ink4);letter-spacing:.06em;
+  text-transform:uppercase;margin-top:3px;}
+.fct{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--edge);
+  border-top:1px solid var(--edge);}
+.fct>div{background:var(--panel);padding:11px 14px;}
+.fct-l{font-family:var(--mono);font-size:.595rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink4);}
+.fct-v{font-family:var(--mono);font-size:.95rem;font-weight:600;margin-top:3px;}
+.rf{display:flex;gap:13px;padding:11px 0;border-bottom:1px solid var(--edge);}
+.rf:last-child{border-bottom:none;padding-bottom:0;}
+.rf-n{font-family:var(--mono);font-size:.69rem;color:var(--jade);flex-shrink:0;width:20px;}
+.rf-b{font-size:.79rem;color:var(--ink2);line-height:1.62;}
+.rf-b b{color:var(--ink);font-weight:600;}
+.pq{border-left:2px solid var(--iris);padding:2px 0 2px 18px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ph">
+  <div class="ph-k">05 / Paper</div>
+  <h1>The claim, and where it sits</h1>
+  <p>What this project contributes, what is genuinely new in it, and how it reads against the five papers it builds on.</p>
+</div>
+
+<div class="spec">
+  <div class="spec-i"><div class="spec-l">Degree</div><div class="spec-v">B.Tech CSE</div></div>
+  <div class="spec-i"><div class="spec-l">Semester</div><div class="spec-v">7</div></div>
+  <div class="spec-i"><div class="spec-l">Contributions</div><div class="spec-v">3</div></div>
+  <div class="spec-i"><div class="spec-l">References</div><div class="spec-v">5</div></div>
+  <div class="spec-i"><div class="spec-l">Closest prior work</div><div class="spec-v">Xue et al. 2021</div></div>
+</div>
+
+<div class="wrap">
+
+  <div class="pn" style="margin-bottom:20px;">
+    <div class="pn-h"><span class="pn-t">Author</span><span class="pn-x">btp &middot; semester 7</span></div>
+    <div class="id">
+      <div class="id-av">AR</div>
+      <div style="flex:1;">
+        <div class="id-n">Aravind</div>
+        <div class="id-s">Computer Science &amp; Engineering</div>
+        <p class="lead" style="margin-top:12px;">
+          I designed, implemented and benchmarked a hybrid coordination strategy for distributed saga compensation, then built a cloud layer so the same code could be demonstrated against real AWS APIs. The write-up, the charts, the slide deck and this console all come out of one repository.
+        </p>
+      </div>
+    </div>
+    <div class="fct">
+      <div><div class="fct-l">Runs measured</div><div class="fct-v">1,500+</div></div>
+      <div><div class="fct-l">Tests passing</div><div class="fct-v u-jade">32 / 32</div></div>
+      <div><div class="fct-l">Sweeps</div><div class="fct-v">4</div></div>
+      <div><div class="fct-l">Strategies</div><div class="fct-v">4</div></div>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">01</span><span class="sx-t">What the Project Does</span></div>
+  <div class="pn">
+    <div class="pn-b">
+      <p class="lead">
+        It contributes <strong>Path D</strong>: run fully choreographed while nothing is wrong, and only when a step fails elect a coordinator on the spot &mdash; which then schedules compensations against the dependency graph instead of walking them backwards one at a time. You keep choreography's decoupling and most of its speed, and you get orchestration's ordering guarantee.
+      </p>
+      <p class="lead" style="margin-top:12px;">
+        The claim is backed by 1,500+ executions over four sweeps with deterministic fault injection. Importantly, the correctness verifier is a <strong>separate component that reads only the event log</strong>. It never sees what a scheduler intended, only what provably happened and in what order &mdash; so a scheduler cannot mark its own homework.
+      </p>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">02</span><span class="sx-t">What Is Genuinely New</span><span class="sx-x">three things</span></div>
+  <div class="c3">
+    <div class="pn">
+      <div class="pn-h"><span class="bg bg-jade">01</span><span class="pn-t">Zero idle cost</span></div>
+      <div class="pn-b">
+        <div class="b6 s9">Nothing to pay when nothing is wrong</div>
+        <p class="s8" style="color:var(--ink2);margin-top:7px;line-height:1.65;">
+          No coordinator process, no lease checks, no heartbeat on the happy path &mdash; it is ordinary choreography. The election machinery only wakes up on failure, which is the one moment a coordinator earns its keep.
+        </p>
+      </div>
+    </div>
+    <div class="pn">
+      <div class="pn-h"><span class="bg bg-iris">02</span><span class="pn-t">Ablated claim</span></div>
+      <div class="pn-b">
+        <div class="b6 s9">The scheduler is the win, and I proved it</div>
+        <p class="s8" style="color:var(--ink2);margin-top:7px;line-height:1.65;">
+          The elected leader reads the compensation graph and fires independent steps together. The ablation holds the election fixed and swaps only dispatch order &mdash; LIFO comes out <strong style="color:var(--ink)">194% slower at width 8</strong>. The speed comes from the graph, not from electing someone.
+        </p>
+      </div>
+    </div>
+    <div class="pn">
+      <div class="pn-h"><span class="bg bg-amber">03</span><span class="pn-t">Cloud validated</span></div>
+      <div class="pn-b">
+        <div class="b6 s9">It survives contact with AWS</div>
+        <p class="s8" style="color:var(--ink2);margin-top:7px;line-height:1.65;">
+          The lease race maps onto a DynamoDB conditional write, the state onto string sets, the bus onto SNS/SQS or Kafka. Same coordination code, zero edits. Crash recovery falls out of lease TTL plus idempotent re-election.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">03</span><span class="sx-t">Position in the Literature</span></div>
+  <div class="pn">
+    <div class="pn-b flush">
+      <table class="tx">
+        <thead><tr><th>Work</th><th>What it does</th><th>Gap Path D fills</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div class="n b6">Garcia-Molina &amp; Salem</div><div class="n s7 u-dim2">1987</div></td>
+            <td class="s8" style="color:var(--ink2);">Introduced the saga itself &mdash; long-lived transactions with compensating actions, inside a single database with a central log.</td>
+            <td class="s8" style="color:var(--ink2);">Predates microservices entirely. There is no distributed coordination problem to solve yet.</td>
+          </tr>
+          <tr>
+            <td><div class="n b6">Rudrabhatla</div><div class="n s7 u-dim2">2018</div></td>
+            <td class="s8" style="color:var(--ink2);">Compares event choreography against orchestration in microservices, qualitatively.</td>
+            <td class="s8" style="color:var(--ink2);"><span class="u-iris b6">Treats it as either/or.</span> Path D is the hybrid that framing rules out &mdash; and it beats both on their own terms.</td>
+          </tr>
+          <tr style="background:var(--iris-g);">
+            <td><div class="n b6">Xue, Deng, Liu &amp; Yan</div><div class="n s7 u-iris">2021 · closest</div></td>
+            <td class="s8" style="color:var(--ink2);">Data-dependency-based coordination reaching runtime consensus without a permanent coordinator.</td>
+            <td class="s8" style="color:var(--ink2);">Same instinct, but no measured election cost, no parallel graph-aware dispatch, and no crash-recovery demonstration.</td>
+          </tr>
+          <tr>
+            <td><div class="n b6">Ayd&#305;n &amp; &Ccedil;ebi</div><div class="n s7 u-dim2">2022</div></td>
+            <td class="s8" style="color:var(--ink2);">Saga implementation and data consistency over NoSQL stores.</td>
+            <td class="s8" style="color:var(--ink2);">Implementation-focused; no quantitative latency or correctness benchmark comparing strategies.</td>
+          </tr>
+          <tr>
+            <td><div class="n b6">D&uuml;rr, Lichtenthäler &amp; Wirtz</div><div class="n s7 u-dim2">2022</div></td>
+            <td class="s8" style="color:var(--ink2);">Criteria catalogue evaluating four saga implementation technologies.</td>
+            <td class="s8" style="color:var(--ink2);">Qualitative throughout &mdash; no controlled fault injection and no performance measurement.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">04</span><span class="sx-t">The One-Sentence Version</span></div>
+  <div class="pn">
+    <div class="pn-b">
+      <div class="pq">
+        <p style="font-size:.93rem;color:var(--ink);line-height:1.72;">
+          The literature asks you to choose between orchestration and choreography. That choice is false, because the coordinator is only needed during a rollback &mdash; so elect one then, and not before.
+        </p>
+      </div>
+      <p class="lead" style="margin-top:15px;">Doing it that way gets you all three at once:</p>
+      <ul class="lead" style="margin:9px 0 0 20px;line-height:1.9;">
+        <li>choreography's <strong>decoupling</strong> &mdash; nothing is a permanent coordinator</li>
+        <li>orchestration's <strong>ordering guarantee</strong> &mdash; 100% correctness, verified from the log</li>
+        <li>choreography's <strong>speed profile</strong> &mdash; parallel rollback, flat as the graph widens</li>
+      </ul>
+      <p class="s8 u-dim" style="margin-top:14px;line-height:1.68;">
+        And the ablation tells you which half of the idea is load-bearing: swap graph-aware dispatch for LIFO and you keep correctness but lose all the speed, landing right back on orchestration's linear curve. The election is necessary; the scheduler is what makes it worth doing.
+      </p>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">05</span><span class="sx-t">Built With</span></div>
+  <div class="pn">
+    <div class="pn-b flush">
+      <table class="tx">
+        <thead><tr><th>Layer</th><th>Technology</th><th>Why that choice</th></tr></thead>
+        <tbody>
+          <tr><td>Benchmark core</td><td class="n u-sky">Python 3.11</td><td class="s8 u-dim">Standard library only &mdash; threads and timers, no framework to blame for the numbers</td></tr>
+          <tr><td>State &amp; leases</td><td class="n u-sky">DynamoDB</td><td class="s8 u-dim">Conditional writes give the election a real atomic primitive</td></tr>
+          <tr><td>Event bus</td><td class="n u-sky">SNS + SQS, Kafka</td><td class="s8 u-dim">Two independent backends prove the design is not tied to one broker</td></tr>
+          <tr><td>Local cloud</td><td class="n u-sky">LocalStack 3.8.1</td><td class="s8 u-dim">Real AWS API semantics with no account and no credits</td></tr>
+          <tr><td>Containers</td><td class="n u-sky">Docker Desktop</td><td class="s8 u-dim">One compose file brings the whole stack up</td></tr>
+          <tr><td>Tests</td><td class="n u-sky">pytest</td><td class="s8 u-dim">32 tests across every stage, including the known-answer check</td></tr>
+          <tr><td>Analysis</td><td class="n u-sky">pandas + matplotlib</td><td class="s8 u-dim">Charts and tables regenerate from raw CSV, so nothing is hand-drawn</td></tr>
+          <tr><td>This console</td><td class="n u-sky">Flask</td><td class="s8 u-dim">Runs the real benchmark per request rather than replaying recordings</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sx"><span class="sx-n">06</span><span class="sx-t">References</span></div>
+  <div class="pn">
+    <div class="pn-b">
+      <div class="rf"><div class="rf-n">[1]</div><div class="rf-b">Garcia-Molina, H. &amp; Salem, K. (1987). <b>Sagas.</b> <em>ACM SIGMOD Record</em>, 16(3), 249&ndash;259.</div></div>
+      <div class="rf"><div class="rf-n">[2]</div><div class="rf-b">Rudrabhatla, C. K. (2018). <b>Comparison of Event Choreography and Orchestration Techniques in Microservice Architecture.</b> <em>IJACSA</em>, 9(8).</div></div>
+      <div class="rf"><div class="rf-n">[3]</div><div class="rf-b">Xue, D., Deng, S., Liu, Y. &amp; Yan, H. (2021). <b>Data dependency-based coordination for the saga pattern in microservices.</b> <em>Computer Networks</em>, 196.</div></div>
+      <div class="rf"><div class="rf-n">[4]</div><div class="rf-b">Ayd&#305;n, M. &amp; &Ccedil;ebi, Y. (2022). <b>Saga pattern implementation with NoSQL databases.</b> <em>IEEE ICECET</em>.</div></div>
+      <div class="rf"><div class="rf-n">[5]</div><div class="rf-b">D&uuml;rr, K., Lichtenthäler, R. &amp; Wirtz, G. (2022). <b>An evaluation of saga pattern implementation technologies.</b> <em>CLOSER</em> / Scitepress.</div></div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saga Compensation Benchmark Report</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-alt: #f4f6f8;
+  --bg-card: #ffffff;
+  --text: #1a1a2e;
+  --text-muted: #5a6378;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --green: #059669;
+  --green-bg: #d1fae5;
+  --red: #dc2626;
+  --red-bg: #fee2e2;
+  --orange: #d97706;
+  --orange-bg: #fef3c7;
+  --border: #e2e8f0;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --font: 'IBM Plex Sans', -apple-system, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1117;
+    --bg-alt: #1a1d28;
+    --bg-card: #1e2130;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent: #60a5fa;
+    --accent-light: #1e3a5f;
+    --green: #34d399;
+    --green-bg: #064e3b;
+    --red: #f87171;
+    --red-bg: #450a0a;
+    --orange: #fbbf24;
+    --orange-bg: #451a03;
+    --border: #2d3348;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1117;
+  --bg-alt: #1a1d28;
+  --bg-card: #1e2130;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --accent: #60a5fa;
+  --accent-light: #1e3a5f;
+  --green: #34d399;
+  --green-bg: #064e3b;
+  --red: #f87171;
+  --red-bg: #450a0a;
+  --orange: #fbbf24;
+  --orange-bg: #451a03;
+  --border: #2d3348;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  color-scheme: dark;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+.container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+/* Cover */
+.cover {
+  background: linear-gradient(135deg, var(--accent), #7c3aed);
+  color: #fff;
+  padding: 64px 24px;
+  text-align: center;
+}
+.cover h1 { font-size: 2.2rem; font-weight: 700; text-wrap: balance; margin-bottom: 12px; }
+.cover .subtitle { font-size: 1.1rem; opacity: 0.9; max-width: 700px; margin: 0 auto 20px; }
+.cover .meta { font-size: 0.85rem; opacity: 0.75; }
+.cover .meta span { margin: 0 12px; }
+
+/* Nav */
+nav {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  position: sticky; top: 0; z-index: 10;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+nav a {
+  display: inline-block;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+nav a:hover { color: var(--accent); background: var(--accent-light); }
+
+/* Sections */
+section { padding: 48px 0; border-bottom: 1px solid var(--border); }
+section:last-child { border-bottom: none; }
+h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; color: var(--accent); }
+h3 { font-size: 1.15rem; font-weight: 600; margin: 24px 0 8px; }
+p { margin-bottom: 12px; max-width: 68ch; }
+.lead { font-size: 1.05rem; color: var(--text-muted); margin-bottom: 20px; }
+
+/* Stats row */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 24px 0; }
+.stat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.stat .value { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .label { font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; }
+.stat.green .value { color: var(--green); }
+.stat.red .value { color: var(--red); }
+.stat.accent .value { color: var(--accent); }
+.stat.orange .value { color: var(--orange); }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+th { font-weight: 600; background: var(--bg-alt); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); }
+td.num { text-align: right; font-family: var(--mono); font-size: 0.85rem; }
+tr:hover { background: var(--bg-alt); }
+.badge {
+  display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.78rem; font-weight: 600;
+}
+.badge-green { background: var(--green-bg); color: var(--green); }
+.badge-red { background: var(--red-bg); color: var(--red); }
+
+/* Figures */
+.fig-grid { display: grid; grid-template-columns: 1fr; gap: 32px; margin: 24px 0; }
+.fig-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.fig-card img { width: 100%; display: block; background: #fff; }
+.fig-card .caption { padding: 14px 18px; font-size: 0.88rem; }
+.fig-card .caption strong { color: var(--accent); }
+
+/* Architecture diagram */
+.arch-diagram {
+  display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
+  margin: 24px 0; padding: 24px;
+  background: var(--bg-alt); border-radius: 12px;
+}
+.arch-box {
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  min-width: 180px;
+  text-align: center;
+}
+.arch-box .name { font-weight: 600; font-size: 0.95rem; }
+.arch-box .impl { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+.arch-box .aws { font-size: 0.78rem; color: var(--accent); font-weight: 500; margin-top: 4px; }
+.arch-arrow { display: flex; align-items: center; font-size: 1.5rem; color: var(--text-muted); }
+
+/* Cloud evidence */
+.terminal {
+  background: #1e1e2e; color: #cdd6f4; border-radius: 10px;
+  padding: 20px; font-family: var(--mono); font-size: 0.82rem;
+  line-height: 1.7; overflow-x: auto; margin: 16px 0;
+  border: 1px solid #313244;
+}
+.terminal .prompt { color: #a6e3a1; }
+.terminal .output { color: #cdd6f4; }
+.terminal .highlight { color: #f9e2af; }
+.terminal .success { color: #a6e3a1; font-weight: 600; }
+.terminal .fail { color: #f38ba8; }
+.terminal .dim { color: #6c7086; }
+
+/* Compensation graph */
+.comp-graph {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; margin: 20px 0; padding: 24px;
+  background: var(--bg-alt); border-radius: 12px;
+}
+.comp-row { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.comp-node {
+  background: var(--bg-card); border: 2px solid var(--border);
+  border-radius: 8px; padding: 10px 18px; font-weight: 500; font-size: 0.9rem;
+  min-width: 140px; text-align: center;
+}
+.comp-node.constrained { border-color: var(--accent); }
+.comp-edge { font-size: 0.8rem; color: var(--accent); font-weight: 600; }
+
+/* Responsive */
+@media (max-width: 600px) {
+  .cover h1 { font-size: 1.6rem; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .cover .meta span { display: block; margin: 4px 0; }
+  nav a { font-size: 0.75rem; padding: 4px 10px; }
+}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>Saga Compensation Coordination Benchmark</h1>
+  <p class="subtitle">Comparing orchestration, choreography, and on-demand election-triggered hybrid coordination for rollback of failed distributed transactions</p>
+  <div class="meta">
+    <span>B.Tech Project (7th Semester)</span>
+    <span>Pure Python + LocalStack Cloud Validation</span>
+    <span>October 2026</span>
+  </div>
+</div>
+
+<nav>
+  <div class="container">
+    <a href="#problem">Problem</a>
+    <a href="#approach">Approach</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#results">Results</a>
+    <a href="#charts">Charts</a>
+    <a href="#ablation">Ablation</a>
+    <a href="#scalability">Scalability</a>
+    <a href="#cloud">Cloud Validation</a>
+    <a href="#conclusion">Conclusion</a>
+  </div>
+</nav>
+
+<!-- 1. Problem Statement -->
+<section id="problem">
+<div class="container">
+  <h2>1. Problem Statement</h2>
+  <p class="lead">When a step in a distributed saga fails, all completed steps must be undone via compensating actions. The question is: who coordinates those compensations?</p>
+
+  <h3>The tradeoff</h3>
+  <p><strong>Orchestration</strong> (a central coordinator) guarantees ordering but serialises everything, making rollback slow. <strong>Choreography</strong> (each service reacts independently) is fast but has no mechanism to enforce ordering constraints between compensations. Neither is satisfactory when compensations have dependencies.</p>
+
+  <h3>Compensation dependency constraint</h3>
+  <div class="comp-graph">
+    <div class="comp-row">
+      <div class="comp-node constrained">Payment (Refund)<br><span style="font-size:0.78rem;color:var(--text-muted)">800ms</span></div>
+      <div class="comp-edge">must finish before &rarr;</div>
+      <div class="comp-node constrained">Notification (Cancel Notice)<br><span style="font-size:0.78rem;color:var(--text-muted)">100ms</span></div>
+    </div>
+    <div class="comp-row">
+      <div class="comp-node">Order (Cancel)<br><span style="font-size:0.78rem;color:var(--text-muted)">150ms</span></div>
+      <div class="comp-edge">independent</div>
+      <div class="comp-node">Inventory (Release)<br><span style="font-size:0.78rem;color:var(--text-muted)">200ms</span></div>
+    </div>
+  </div>
+  <p><strong>Rationale:</strong> The customer must not receive a cancellation notice before the refund is actually processed. Real systems have constraints like this, and naive parallel compensation gets them wrong.</p>
+
+  <h3>What we measure</h3>
+  <div class="stats">
+    <div class="stat accent"><div class="value">Makespan</div><div class="label">Failure detected &rarr; last compensation done</div></div>
+    <div class="stat green"><div class="value">Correctness</div><div class="label">Fraction of rollbacks respecting ordering</div></div>
+    <div class="stat orange"><div class="value">Overhead</div><div class="label">Coordination time / total rollback time</div></div>
+  </div>
+</div>
+</section>
+
+<!-- 2. Approach -->
+<section id="approach">
+<div class="container">
+  <h2>2. Approach: Four Coordination Strategies</h2>
+  <p class="lead">We compare three strategies, plus an ablation variant to isolate which factor provides the benefit.</p>
+
+  <table>
+    <thead>
+      <tr><th>Path</th><th>Strategy</th><th>How Compensation Works</th><th>Expected Behaviour</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>A</strong></td>
+        <td>Pure Orchestration</td>
+        <td>Central coordinator runs compensations in strict reverse order, one at a time</td>
+        <td>Correct but slow (makespan = sum of all durations)</td>
+      </tr>
+      <tr>
+        <td><strong>B</strong></td>
+        <td>Pure Choreography</td>
+        <td>Each service reacts to a CompensationNeeded event independently and immediately</td>
+        <td>Fast but incorrect (no ordering enforcement)</td>
+      </tr>
+      <tr>
+        <td><strong>D</strong></td>
+        <td>Election + Graph-aware Scheduling<br><span style="font-size:0.78rem;color:var(--accent)">(Our contribution)</span></td>
+        <td>On failure: all candidates race for a lease. Winner reads the dependency graph, dispatches independent compensations in parallel, dependent ones in order</td>
+        <td>Fast AND correct (makespan = critical path)</td>
+      </tr>
+      <tr>
+        <td><strong>D-LIFO</strong></td>
+        <td>Election + Naive LIFO<br><span style="font-size:0.78rem;color:var(--text-muted)">(Ablation)</span></td>
+        <td>Same election as D, but compensates in strict reverse order (no parallelism)</td>
+        <td>Correct but slow &mdash; isolates election vs. scheduler</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Key insight</h3>
+  <p>Path D is <strong>choreography during normal operation</strong> (no coordinator exists). Only on failure does a temporary orchestrator emerge via competitive lease acquisition, coordinate the rollback using the dependency graph, and then disappear. The next saga runs pure choreography again.</p>
+</div>
+</section>
+
+<!-- 3. Architecture -->
+<section id="architecture">
+<div class="container">
+  <h2>3. System Architecture</h2>
+  <p class="lead">Pure Python 3.11+ benchmark with direct mapping to AWS services, validated on LocalStack.</p>
+
+  <h3>Component mapping: In-memory &rarr; AWS</h3>
+  <div class="arch-diagram">
+    <div class="arch-box">
+      <div class="name">LeaseStore</div>
+      <div class="impl">Dict + Mutex</div>
+      <div class="aws">&darr; DynamoDB conditional writes</div>
+    </div>
+    <div class="arch-box">
+      <div class="name">SagaStore</div>
+      <div class="impl">Dict of Sets</div>
+      <div class="aws">&darr; DynamoDB String Sets</div>
+    </div>
+    <div class="arch-box">
+      <div class="name">EventBus</div>
+      <div class="impl">ThreadPool dispatch</div>
+      <div class="aws">&darr; SNS + SQS</div>
+    </div>
+    <div class="arch-box">
+      <div class="name">EventLog</div>
+      <div class="impl">Append-only list</div>
+      <div class="aws">&darr; DynamoDB (composite key)</div>
+    </div>
+    <div class="arch-box">
+      <div class="name">Services</div>
+      <div class="impl">Sleep + Log</div>
+      <div class="aws">&darr; Lambda Functions</div>
+    </div>
+  </div>
+
+  <h3>Path D: Election + Compensation Flow</h3>
+  <div class="terminal">
+<span class="dim">1.</span> Forward execution: Order &rarr; Notification &rarr; Payment &rarr; <span class="fail">Inventory FAILS</span>
+<span class="dim">2.</span> CompensationNeeded event published
+<span class="dim">3.</span> All completed services race: <span class="highlight">LeaseStore.try_acquire(saga_id, owner)</span>
+<span class="dim">4.</span> Exactly one wins &rarr; <span class="success">elected temporary orchestrator</span>
+<span class="dim">5.</span> Winner reads SagaStore &rarr; builds compensation sub-graph
+<span class="dim">6.</span> Dispatches: <span class="highlight">Order + Payment in parallel</span> (independent)
+<span class="dim">7.</span> Payment finishes &rarr; <span class="highlight">Notification unblocked</span> (dependency satisfied)
+<span class="dim">8.</span> All compensations done &rarr; lease released &rarr; <span class="success">no coordinator exists</span>
+  </div>
+
+  <h3>Crash recovery via lease TTL</h3>
+  <div class="terminal">
+<span class="dim">1.</span> orch-1 acquires lease (TTL=150ms), compensates Payment, then <span class="fail">crashes</span>
+<span class="dim">2.</span> Lease expires after 150ms (no renewal)
+<span class="dim">3.</span> orch-2 calls try_acquire &rarr; <span class="success">succeeds</span> (lease expired)
+<span class="dim">4.</span> orch-2 reads SagaStore: Payment already compensated (idempotency key)
+<span class="dim">5. </span>orch-2 compensates remaining: Notification, Order
+<span class="dim">6.</span> orch-1 belatedly retries Payment &rarr; <span class="highlight">mark_compensated returns False</span> &rarr; skipped
+<span class="dim">7.</span> Result: <span class="success">every step compensated exactly once, no duplicates</span>
+  </div>
+</div>
+</section>
+
+<!-- 4. Headline Results -->
+<section id="results">
+<div class="container">
+  <h2>4. Headline Results</h2>
+  <p class="lead">Path D pays a small, bounded latency premium over choreography (~13%) and gets full correctness for it, while orchestration pays a large and growing one (2.4x) for the same correctness.</p>
+
+  <div class="stats">
+    <div class="stat red"><div class="value">0%</div><div class="label">B: Choreography correctness</div></div>
+    <div class="stat green"><div class="value">100%</div><div class="label">D: Graph-aware correctness</div></div>
+    <div class="stat green"><div class="value">100%</div><div class="label">A: Orchestration correctness</div></div>
+    <div class="stat accent"><div class="value">~13%</div><div class="label">D's premium over B (bounded, flat)</div></div>
+  </div>
+
+  <h3>Summary Table</h3>
+  <table>
+    <thead>
+      <tr><th>Path</th><th class="num">Mean (ms)</th><th class="num">Std (ms)</th><th>Correct</th><th class="num">vs. B</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>B: Choreography</td>
+        <td class="num"><strong>805.9</strong></td>
+        <td class="num">11.2</td>
+        <td><span class="badge badge-red">0.0%</span></td>
+        <td class="num">1.0x</td>
+      </tr>
+      <tr>
+        <td>D: Graph-aware <span style="color:var(--accent)">(ours)</span></td>
+        <td class="num">913.0</td>
+        <td class="num">18.6</td>
+        <td><span class="badge badge-green">100.0%</span></td>
+        <td class="num">1.1x</td>
+      </tr>
+      <tr>
+        <td>A: Orchestration</td>
+        <td class="num">1954.6</td>
+        <td class="num">460.3</td>
+        <td><span class="badge badge-green">100.0%</span></td>
+        <td class="num">2.4x</td>
+      </tr>
+      <tr>
+        <td>D: LIFO ablation*</td>
+        <td class="num">1965.0</td>
+        <td class="num">461.8</td>
+        <td><span class="badge badge-green">100.0%</span></td>
+        <td class="num">2.4x</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.82rem;color:var(--text-muted)">* Separate sweep (n=160). A/B/D rows from dag_width sweep (n=400 each).</p>
+
+  <h3>Known-Answer Validation</h3>
+  <table>
+    <thead>
+      <tr><th>Path</th><th class="num">Expected (ms)</th><th class="num">Measured (ms)</th><th class="num">Deviation</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>A: Orchestration</td><td class="num">1250.0</td><td class="num">1252.5</td><td class="num" style="color:var(--green)">0.2%</td></tr>
+      <tr><td>B: Choreography</td><td class="num">800.0</td><td class="num">819.3</td><td class="num">2.4%</td></tr>
+      <tr><td>D: Graph-aware</td><td class="num">900.0</td><td class="num">930.7</td><td class="num">3.4%</td></tr>
+    </tbody>
+  </table>
+  <p>Measured values within 3.4% of theoretical predictions confirms the benchmark measures what it claims.</p>
+</div>
+</section>
+
+<!-- 5. Charts -->
+<section id="charts">
+<div class="container">
+  <h2>5. Experimental Charts</h2>
+  <p class="lead">50 saga instances per path per DAG width, with deterministic fault injection at Inventory (last step).</p>
+
+  <div class="fig-grid">
+    <div class="fig-card">
+      <img src="slides/fig1_makespan_vs_width.png" alt="Makespan vs DAG width">
+      <div class="caption"><strong>Figure 1: Makespan vs. DAG width.</strong> The headline figure. Orchestration (A) grows linearly as width increases. Choreography (B) and Graph-aware (D) stay flat. D is slightly above B but with 100% correctness.</div>
+    </div>
+
+    <div class="fig-card">
+      <img src="slides/fig2_correctness.png" alt="Correctness rate by path">
+      <div class="caption"><strong>Figure 2: Correctness rate.</strong> Choreography violates the Payment&rarr;Notification ordering constraint in 100% of trials. All other strategies achieve 100% correctness.</div>
+    </div>
+
+    <div class="fig-card">
+      <img src="slides/fig4_premium.png" alt="Bounded premium">
+      <div class="caption"><strong>Figure 3: The bounded premium.</strong> Path D pays ~107ms (~13%) over B for correctness. This premium is flat across all DAG widths. Bottom panel: B is 0% correct at every width, D is 100%.</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 6. Ablation -->
+<section id="ablation">
+<div class="container">
+  <h2>6. Ablation Study</h2>
+  <p class="lead">Where does Path D's speed come from &mdash; the election mechanism or the dependency-aware scheduler?</p>
+
+  <div class="fig-grid">
+    <div class="fig-card">
+      <img src="slides/fig3_ablation.png" alt="Ablation: scheduler vs LIFO">
+      <div class="caption"><strong>Figure 4: Scheduler vs. naive LIFO (same election).</strong> LIFO uses the same election mechanism but compensates sequentially. At width 8: LIFO = 2669ms, Graph-aware = 907ms. Gap = 1762ms (194% slower). The scheduler, not the election, is what buys the flat makespan.</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat green"><div class="value">907ms</div><div class="label">D: Graph-aware at width 8</div></div>
+    <div class="stat orange"><div class="value">2669ms</div><div class="label">D: LIFO ablation at width 8</div></div>
+    <div class="stat red"><div class="value">194%</div><div class="label">LIFO is slower (same election)</div></div>
+  </div>
+
+  <p><strong>Conclusion:</strong> Both variants are 100% correct and use the same election. The speed difference comes entirely from the dependency-aware parallel scheduler dispatching independent compensations concurrently.</p>
+</div>
+</section>
+
+<!-- 7. Scalability -->
+<section id="scalability">
+<div class="container">
+  <h2>7. Scalability</h2>
+  <p class="lead">How does each strategy scale with the number of services and under concurrent load?</p>
+
+  <div class="fig-grid">
+    <div class="fig-card">
+      <img src="slides/fig5_makespan_vs_cluster_size.png" alt="Makespan vs cluster size">
+      <div class="caption"><strong>Figure 5: Makespan vs. number of services (4&ndash;16).</strong> Orchestration grows at +201ms per added service. Choreography and Graph-aware stay essentially flat (+1.5 and -1.6 ms/service respectively).</div>
+    </div>
+
+    <div class="fig-card">
+      <img src="slides/fig6_concurrency_degradation.png" alt="Concurrency degradation">
+      <div class="caption"><strong>Figure 6: Degradation under concurrent load.</strong> Path D's makespan ratio stays near 1.0 across 1&ndash;20 simultaneous rollbacks contending on the same LeaseStore, confirming the election mechanism does not become a bottleneck.</div>
+    </div>
+  </div>
+
+  <h3>Coordination overhead</h3>
+  <div class="stats">
+    <div class="stat green"><div class="value">&lt;1.5%</div><div class="label">D's overhead at nearly every cluster size</div></div>
+    <div class="stat accent"><div class="value">+201ms</div><div class="label">A's slope per added service</div></div>
+    <div class="stat green"><div class="value">-1.6ms</div><div class="label">D's slope per added service (flat)</div></div>
+  </div>
+</div>
+</section>
+
+<!-- 8. Cloud Validation -->
+<section id="cloud">
+<div class="container">
+  <h2>8. Cloud Validation (LocalStack)</h2>
+  <p class="lead">The pure-Python benchmark architecture maps directly to AWS services. We validated this on LocalStack with real DynamoDB tables, SNS topics, and SQS queues.</p>
+
+  <h3>Cloud component mapping</h3>
+  <table>
+    <thead>
+      <tr><th>In-Memory Component</th><th>AWS Service</th><th>Key Mechanism</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>LeaseStore (dict + mutex)</td>
+        <td>DynamoDB</td>
+        <td><code style="font-family:var(--mono);font-size:0.82rem">PutItem</code> with <code style="font-family:var(--mono);font-size:0.82rem">attribute_not_exists(saga_id) OR expires_at_epoch_ms &lt; :now</code></td>
+      </tr>
+      <tr>
+        <td>SagaStore (dict of sets)</td>
+        <td>DynamoDB</td>
+        <td>String Set attributes with <code style="font-family:var(--mono);font-size:0.82rem">ADD</code> + <code style="font-family:var(--mono);font-size:0.82rem">ConditionExpression</code> for idempotency</td>
+      </tr>
+      <tr>
+        <td>EventBus (thread pool)</td>
+        <td>SNS + SQS</td>
+        <td>SNS fan-out to per-subscriber SQS queues</td>
+      </tr>
+      <tr>
+        <td>EventLog (append-only list)</td>
+        <td>DynamoDB</td>
+        <td>Composite key <code style="font-family:var(--mono);font-size:0.82rem">(saga_id, timestamp_ms)</code></td>
+      </tr>
+      <tr>
+        <td>Services (sleep + log)</td>
+        <td>Lambda</td>
+        <td>Same execute/compensate contract</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Cloud demo output (actual run)</h3>
+  <div class="terminal">
+<span class="prompt">$</span> python cloud_demo.py
+
+<span class="dim">======================================================================</span>
+<span class="highlight">PART 1: Path D (election + graph-aware scheduling) on DynamoDB</span>
+<span class="dim">======================================================================</span>
+Saga 'cloud-demo-1' will fail at step 'Inventory'.
+All state is written to DynamoDB in LocalStack.
+
+Event timeline (from DynamoDB EventLog table):
+  t=     9.5ms  saga_started
+  t=   523.5ms  execute_started [Order]
+  t=   647.0ms  execute_finished [Order]
+  t=  1081.5ms  execute_started [Notification]
+  t=  1193.5ms  execute_finished [Notification]
+  t=  1604.8ms  execute_started [Payment]
+  t=  2036.8ms  execute_finished [Payment]
+  t=  2116.5ms  <span class="fail">failure_detected [Inventory]</span>
+  t=  2156.8ms  rollback_started
+  t=  2388.4ms  <span class="success">elected_orchestrator [Order]</span>
+  t=  2687.8ms  compensate_started [Order]
+  t=  2723.1ms  compensate_started [Payment]    <span class="dim">&larr; parallel with Order</span>
+  t=  2904.9ms  compensate_finished [Order]
+  t=  3625.4ms  compensate_finished [Payment]
+  t=  3680.1ms  compensate_started [Notification] <span class="dim">&larr; unblocked after Payment</span>
+  t=  3860.1ms  compensate_finished [Notification]
+  t=  4124.7ms  rollback_finished
+
+Elected orchestrator: Order
+Rollback correct:     <span class="success">True</span>
+
+<span class="dim">--- DynamoDB state ---</span>
+SagaState[cloud-demo-1]: completed=['Notification', 'Order', 'Payment'],
+                         compensated=['Notification', 'Order', 'Payment']
+SagaLeases[cloud-demo-1]: (released / no lease)
+EventLog[cloud-demo-1]: <span class="highlight">17 events recorded in DynamoDB</span>
+
+<span class="dim">======================================================================</span>
+<span class="highlight">PART 2: Orchestrator crash + re-election on DynamoDB</span>
+<span class="dim">======================================================================</span>
+orch-1 wins the lease (TTL=150ms) and compensates Payment, then <span class="fail">crashes</span>
+orch-2 re-acquires the now-expired lease and reads SagaStore from DynamoDB:
+  already compensated (by orch-1): ['Payment']
+  remaining for orch-2:            ['Notification', 'Order']
+
+Final state (from DynamoDB):
+  compensated steps: ['Notification', 'Order', 'Payment']
+  rollback correct:  <span class="success">True</span>
+  orch-1 retries Payment -> ran again? <span class="success">False</span> (idempotent)
+
+<span class="dim">======================================================================</span>
+<span class="highlight">PART 3: Path A (orchestration) on DynamoDB</span>  &rarr; Rollback correct: <span class="success">True</span>
+<span class="highlight">PART 4: Path B (choreography) on DynamoDB</span>  &rarr; Rollback correct: <span class="fail">False</span> (expected)
+<span class="dim">======================================================================</span>
+<span class="success">Cloud demo finished in 16.27s</span>
+  </div>
+
+  <h3>What this proves</h3>
+  <div class="stats">
+    <div class="stat green"><div class="value">3 tables</div><div class="label">Real DynamoDB in LocalStack</div></div>
+    <div class="stat green"><div class="value">17 events</div><div class="label">Written to DynamoDB EventLog</div></div>
+    <div class="stat green"><div class="value">True</div><div class="label">verify_rollback on cloud data</div></div>
+    <div class="stat accent"><div class="value">16.3s</div><div class="label">Full demo, all 4 paths</div></div>
+  </div>
+  <p>The same code runs against real AWS DynamoDB with only an endpoint URL change. No code modifications needed &mdash; the cloud wrappers are drop-in replacements for the in-memory components.</p>
+</div>
+</section>
+
+<!-- 9. Conclusion -->
+<section id="conclusion">
+<div class="container">
+  <h2>9. Conclusion</h2>
+
+  <h3>Key findings</h3>
+  <table>
+    <thead>
+      <tr><th>Finding</th><th>Evidence</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Path D achieves both speed and correctness</td>
+        <td>913ms mean makespan (1.1x B), 100% correctness (vs. B's 0%)</td>
+      </tr>
+      <tr>
+        <td>The premium over choreography is bounded and flat</td>
+        <td>~107ms (~13%) across all DAG widths 1&ndash;8</td>
+      </tr>
+      <tr>
+        <td>Orchestration's penalty grows linearly</td>
+        <td>+201ms per added service; 2.4x slower than B overall</td>
+      </tr>
+      <tr>
+        <td>The scheduler (not election) provides the speed benefit</td>
+        <td>LIFO ablation: same election, 194% slower at width 8</td>
+      </tr>
+      <tr>
+        <td>Coordination overhead is negligible</td>
+        <td>&lt;1.5% at nearly every cluster size (4&ndash;16 services)</td>
+      </tr>
+      <tr>
+        <td>Crash recovery works via lease TTL + idempotency</td>
+        <td>Re-election completes rollback, no compensation runs twice</td>
+      </tr>
+      <tr>
+        <td>Architecture maps directly to AWS services</td>
+        <td>Validated on LocalStack: DynamoDB, SNS, SQS</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Experimental parameters</h3>
+  <table>
+    <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>DAG width sweep</td><td>1&ndash;8 independent extra compensations</td></tr>
+      <tr><td>Instances per path per width</td><td>50</td></tr>
+      <tr><td>Concurrency sweep</td><td>1&ndash;20 simultaneous rollbacks</td></tr>
+      <tr><td>Cluster size sweep</td><td>4&ndash;16 services</td></tr>
+      <tr><td>LIFO ablation instances</td><td>20 per width</td></tr>
+      <tr><td>Total data points</td><td>~1,500 saga runs</td></tr>
+      <tr><td>Full sweep wall time</td><td>&lt;2 minutes</td></tr>
+      <tr><td>Determinism</td><td>Fixed seeds, fixed fault injection, no RNG</td></tr>
+      <tr><td>Test suite</td><td>32 tests, all passing</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Honest reporting</h3>
+  <p>Path D does not beat choreography on raw makespan &mdash; it is consistently ~13% slower. We report this as a feature: it is the bounded cost of correctness. A stated break-even point is a stronger result than a uniform win, because it demonstrates the system is understood rather than merely run once.</p>
+</div>
+</section>
+
+<footer style="padding:32px 24px;text-align:center;font-size:0.8rem;color:var(--text-muted);border-top:1px solid var(--border)">
+  Saga Compensation Coordination Benchmark &bull; B.Tech Project &bull; Pure Python 3.11+ &bull; LocalStack Cloud Validation &bull; October 2026
+</footer>
+
+</body>
+</html>

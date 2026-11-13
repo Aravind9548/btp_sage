@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compensation Control Room — Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="inner">
+    <div class="brand"><span class="mark">§</span><span class="name">COMPENSATION CONTROL ROOM</span></div>
+    <nav class="pagenav">
+      <a href="index.html">Overview</a>
+      <a href="architecture.html" class="cur">Architecture</a>
+      <a href="simulate.html">Live Run</a>
+      <a href="results.html">Results</a>
+      <a href="audit.html">Audit</a>
+      <button id="themeBtn" class="themebtn" aria-label="Toggle theme">◐</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero" style="padding-top:40px;">
+    <p class="kicker">Architecture</p>
+    <h1>Four answers to one question</h1>
+    <p class="lede">A saga strings a business transaction across services with no shared database transaction
+      tying them together. When one step fails partway through, something has to explicitly undo every
+      step that already succeeded &mdash; in the right order. <em>Who decides that order, and when,
+      is the whole design space.</em></p>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><span class="num">01</span><h2>The saga and its one real constraint</h2></div>
+    <p class="block-dek">Four services, run in this order. The benchmark always fails at Inventory &mdash;
+      the last step &mdash; so every earlier step has completed and needs compensating on every run.</p>
+
+    <div class="flow">
+      <span class="step">Order</span><span class="arrow">&rarr;</span>
+      <span class="step">Notification</span><span class="arrow">&rarr;</span>
+      <span class="step">Payment</span><span class="arrow">&rarr;</span>
+      <span class="step fail">Inventory &#9888; fails</span>
+    </div>
+    <p class="edge-note">The one ordering rule that must hold during rollback: <b class="mono">Payment's
+      compensation must finish before Notification's compensation starts</b> &mdash; you don't want to
+      tell a customer "refunded" before the refund actually happened. Every architecture below is judged
+      against this single edge, read straight from event-log timestamps after the fact.</p>
+
+    <div class="card" data-tab="compensation graph" style="margin-top:20px;">
+      <svg viewBox="0 0 660 210" role="img" aria-label="Compensation dependency graph" style="width:100%; height:auto; display:block;">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"></path>
+          </marker>
+        </defs>
+        <!-- the one real edge -->
+        <rect x="40" y="30" width="120" height="40" rx="4" fill="var(--surface)" stroke="var(--rule-strong)"></rect>
+        <text x="100" y="55" text-anchor="middle" class="mono" style="font-size:13px; fill:var(--ink);">Order</text>
+
+        <rect x="270" y="30" width="130" height="40" rx="4" fill="var(--surface)" stroke="var(--series-b)" stroke-width="1.5"></rect>
+        <text x="335" y="55" text-anchor="middle" class="mono" style="font-size:13px; fill:var(--ink);">Payment</text>
+
+        <rect x="500" y="30" width="130" height="40" rx="4" fill="var(--surface)" stroke="var(--series-b)" stroke-width="1.5"></rect>
+        <text x="565" y="55" text-anchor="middle" class="mono" style="font-size:13px; fill:var(--ink);">Notification</text>
+
+        <line x1="400" y1="50" x2="494" y2="50" stroke="var(--accent)" stroke-width="2" marker-end="url(#arrow)"></line>
+        <text x="447" y="34" text-anchor="middle" class="hand" style="font-size:17px; fill:var(--accent);">must finish first</text>
+
+        <rect x="270" y="145" width="130" height="38" rx="4" fill="none" stroke="var(--critical)" stroke-dasharray="4,3"></rect>
+        <text x="335" y="169" text-anchor="middle" class="mono" style="font-size:12.5px; fill:var(--critical);">Inventory ✕ fails</text>
+
+        <rect x="440" y="145" width="70" height="38" rx="4" fill="none" stroke="var(--rule-strong)" stroke-dasharray="3,3"></rect>
+        <text x="475" y="164" text-anchor="middle" class="mono" style="font-size:11px; fill:var(--ink-muted);">Extra1</text>
+        <rect x="520" y="145" width="70" height="38" rx="4" fill="none" stroke="var(--rule-strong)" stroke-dasharray="3,3"></rect>
+        <text x="555" y="164" text-anchor="middle" class="mono" style="font-size:11px; fill:var(--ink-muted);">Extra2&hellip;</text>
+        <text x="512" y="200" text-anchor="middle" style="font-size:11px; fill:var(--ink-muted);">dag_width sweep adds these — independent, edge unchanged</text>
+      </svg>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><span class="num">02</span><h2>Four coordination strategies</h2></div>
+
+    <div class="grid-2">
+      <div class="card" data-tab="path A">
+        <h3><span class="pathkey"><span class="sw" style="background:var(--series-a)"></span>A &mdash; Orchestration</h3>
+        <p class="sub">A central coordinator, deciding everything</p>
+        <p style="font-size:13.5px; color:var(--ink-2); line-height:1.7;">Runs the forward steps one at a time.
+          On failure, walks backward through completed steps <b>one at a time</b>, waiting for each
+          compensation to finish before starting the next. Simple and predictable &mdash; but strictly
+          serial, so cost grows with every step you add.</p>
+      </div>
+      <div class="card" data-tab="path B">
+        <h3><span class="pathkey"><span class="sw" style="background:var(--series-b)"></span>B &mdash; Choreography</h3>
+        <p class="sub">No coordinator at all</p>
+        <p style="font-size:13.5px; color:var(--ink-2); line-height:1.7;">Every service just reacts to
+          events. One failure event fires, and <b>every</b> completed service compensates itself
+          independently, all at once &mdash; with no mechanism for one to wait on another.</p>
+      </div>
+      <div class="card" data-tab="path D">
+        <h3><span class="pathkey"><span class="sw" style="background:var(--series-d)"></span>D &mdash; Election + graph-aware</h3>
+        <p class="sub">This project's contribution</p>
+        <p style="font-size:13.5px; color:var(--ink-2); line-height:1.7;">On failure, survivors hold a quick
+          lease-based leader election (the same idea as DynamoDB's conditional writes). The winner reads
+          the real compensation dependency graph and dispatches in parallel &mdash; except the one edge
+          that genuinely must wait.</p>
+      </div>
+      <div class="card" data-tab="ablation">
+        <h3><span class="pathkey"><span class="sw" style="background:var(--series-dl)"></span>D &mdash; naive LIFO (ablation)</h3>
+        <p class="sub">A control, not a fourth design</p>
+        <p style="font-size:13.5px; color:var(--ink-2); line-height:1.7;">Same election as D, but the
+          winner just reverse-order-compensates like A instead of reading the graph. Exists purely to
+          answer: is D's speed from the election, or the scheduler? <a href="results.html#ablation">See the answer &rarr;</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><span class="num">03</span><h2>How correctness is judged</h2></div>
+    <p class="block-dek">One function, <span class="mono">verify_rollback</span>, reads the event log after
+      the fact and checks the Payment&rarr;Notification edge. It never looks at what a scheduler
+      <i>intended</i> &mdash; only what actually happened, in what order.</p>
+    <div class="card" data-tab="verify_rollback">
+      <p class="mono" style="font-size:13px; line-height:1.9; color:var(--ink-2); margin:0;">
+        for edge (Payment &rarr; Notification):<br>
+        &nbsp;&nbsp;if Notification never compensated&nbsp;&nbsp;&rarr; edge not exercised, vacuously fine<br>
+        &nbsp;&nbsp;if Payment never started compensating &rarr; nothing for Notification to wait on, fine<br>
+        &nbsp;&nbsp;else require: <b style="color:var(--ink)">finish(Payment) &lt; start(Notification)</b>
+      </p>
+    </div>
+    <p class="edge-note">This scoping is what lets one function correctly judge both a full four-step
+      rollback and a partial one &mdash; a step that never ran forward has nothing to compensate, and an
+      edge whose target never fired was never at risk.</p>
+  </section>
+
+  <footer class="pagefoot">
+    <span>saga_bench/graph.py</span><span>·</span>
+    <span>saga_bench/paths/{orchestration,choreography,path_d}.py</span><span>·</span>
+    <span>saga_bench/config.py</span>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>initThemeToggle("themeBtn");</script>
+</body>
+</html>

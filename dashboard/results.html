@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compensation Control Room — Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="inner">
+    <div class="brand"><span class="mark">§</span><span class="name">COMPENSATION CONTROL ROOM</span></div>
+    <nav class="pagenav">
+      <a href="index.html">Overview</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="simulate.html">Live Run</a>
+      <a href="results.html" class="cur">Results</a>
+      <a href="audit.html">Audit</a>
+      <button id="themeBtn" class="themebtn" aria-label="Toggle theme">◐</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap wide">
+  <section class="hero" style="padding-top:40px;">
+    <p class="kicker">Results</p>
+    <h1>The numbers, live</h1>
+    <p class="lede">Every chart below reads straight from <span class="mono">experiment_results.csv</span>
+      &mdash; switch the sweep, hover the lines, nothing here is a static export.</p>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2>Mean makespan by path</h2></div>
+    <p class="block-dek">dag_width sweep, n=400 per path. The LIFO row is drawn separately from
+      lifo_ablation (n=160) &mdash; a different sweep, marked below, not folded in as a fourth path.</p>
+    <div class="grid-2">
+      <div class="card" data-tab="makespan">
+        <div id="barlist"></div>
+      </div>
+      <div class="card" data-tab="correctness">
+        <div class="clist" id="clist"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head"><h2>Sweep explorer</h2></div>
+    <p class="block-dek">Same y-axis, mean makespan in ms, across all three sweeps &mdash; pick the
+      independent variable.</p>
+    <div class="card" data-tab="interactive">
+      <div class="tabs" id="tabs" role="tablist">
+        <button class="tab active" data-sweep="dag_width" role="tab">DAG width</button>
+        <button class="tab" data-sweep="cluster_size" role="tab">Cluster size</button>
+        <button class="tab" data-sweep="concurrency" role="tab">Concurrency</button>
+      </div>
+      <div class="chart-wrap" id="chartWrap">
+        <svg id="chart" viewBox="0 0 880 340" role="img" aria-label="Mean makespan line chart"></svg>
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <p class="chart-caption" id="chartCaption"></p>
+    </div>
+  </section>
+
+  <section class="block" id="ablation">
+    <div class="block-head"><h2>Ablation: what actually buys the win?</h2></div>
+    <p class="block-dek">Same election mechanism, different dispatch strategy, at DAG width 8 &mdash;
+      isolating the scheduler's contribution from the election's.</p>
+
+    <div class="grid-2" style="margin-bottom:6px;">
+      <div class="card" data-tab="D: dependency-aware" style="border-color:color-mix(in srgb, var(--series-d) 45%, var(--border));">
+        <ul style="font-size:13px; color:var(--ink-2); line-height:1.85; margin:0; padding-left:18px;">
+          <li>Reads the compensation graph</li>
+          <li>Independent steps dispatch in parallel</li>
+          <li>Dependent steps held back for their edge</li>
+          <li>Cost &asymp; critical-path length</li>
+        </ul>
+      </div>
+      <div class="card" data-tab="D: naive LIFO" style="border-color:color-mix(in srgb, var(--series-dl) 45%, var(--border));">
+        <ul style="font-size:13px; color:var(--ink-2); line-height:1.85; margin:0; padding-left:18px;">
+          <li>Identical election, identical lease</li>
+          <li>Compensates in strict reverse order</li>
+          <li>One step at a time, always</li>
+          <li>Cost = sum of every duration</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" data-tab="width = 8">
+      <div id="ablBars"></div>
+      <p class="marginalia" style="margin:14px 0 4px;">the scheduler, not the election, is what flattens the curve &darr;</p>
+      <div class="grid-3" id="ablReadouts" style="margin-top:6px;"></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>results/experiment_results.csv</span><span>·</span>
+    <span>slides/key_numbers.md</span><span>·</span>
+    <span>make_slides.py</span>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var order = ["path_b","path_d","path_a","path_d_lifo"];
+
+  (function renderBars(){
+    var max = Math.max.apply(null, order.map(function(k){ return TABLE1[k].mean; }));
+    var el = document.getElementById("barlist");
+    order.forEach(function(key){
+      var p = PATHS[key], t = TABLE1[key];
+      var row = document.createElement("div");
+      row.className = "barrow";
+      row.innerHTML =
+        '<div class="barrow-top"><div class="pathkey"><span class="sw" style="background:var(' + p.colorVar + ')"></span>' + p.label + '</div>' +
+        '<div class="barrow-val tab-nums">' + fmt(t.mean) + ' ms<span class="mult">' + t.vs_b.toFixed(2) + '×</span></div></div>' +
+        '<div class="track"><div class="fill" style="background:var(' + p.colorVar + ')"></div></div>';
+      el.appendChild(row);
+      requestAnimationFrame(function(){ row.querySelector(".fill").style.width = (t.mean / max * 100).toFixed(1) + "%"; });
+    });
+  })();
+
+  (function renderCorrect(){
+    var el = document.getElementById("clist");
+    order.forEach(function(key){
+      var p = PATHS[key], c = CORRECT[key];
+      var row = document.createElement("div");
+      row.className = "crow";
+      row.innerHTML =
+        '<div><div class="pathkey"><span class="sw" style="background:var(' + p.colorVar + ')"></span>' + p.label + '</div>' +
+        '<div class="crow-why">' + WHY[key] + '</div></div>' +
+        '<span class="pill ' + (c===100?"good":"critical") + '">' + (c===100?"✓":"✕") + " " + c + "%</span>";
+      el.appendChild(row);
+    });
+  })();
+
+  (function renderAblation(){
+    var d = DATA.lifo_ablation.path_d[8], l = DATA.lifo_ablation.path_d_lifo[8];
+    var mult = l / d;
+    var bars = document.getElementById("ablBars");
+    [ {key:"path_d", v:d}, {key:"path_d_lifo", v:l} ].forEach(function(item){
+      var p = PATHS[item.key];
+      var row = document.createElement("div");
+      row.className = "barrow";
+      row.innerHTML =
+        '<div class="barrow-top"><div class="pathkey"><span class="sw" style="background:var(' + p.colorVar + ')"></span>' + p.label + ' at width 8</div>' +
+        '<div class="barrow-val tab-nums">' + fmt(item.v) + ' ms</div></div>' +
+        '<div class="track"><div class="fill" style="background:var(' + p.colorVar + ')"></div></div>';
+      bars.appendChild(row);
+      requestAnimationFrame(function(){ row.querySelector(".fill").style.width = (item.v/l*100).toFixed(1) + "%"; });
+    });
+    document.getElementById("ablReadouts").innerHTML =
+      '<div class="readout"><div class="rv" style="color:var(--series-d)">' + fmt(d) + '</div><div class="rl">graph-aware, ms</div></div>' +
+      '<div class="readout"><div class="rv" style="color:var(--series-dl)">' + fmt(l) + '</div><div class="rl">naive lifo, ms</div></div>' +
+      '<div class="readout"><div class="rv" style="color:var(--critical)">' + mult.toFixed(2) + '×</div><div class="rl">lifo is slower</div></div>';
+  })();
+
+  var SWEEP_META = {
+    dag_width:   { paths:["path_a","path_b","path_d"], xLabel:"DAG width (independent extra compensations)", xTicks:[1,2,3,4,5,6,7,8],
+      caption:"A grows linearly as every extra independent step joins a strictly serial reverse-order queue. B and D stay flat — B because nothing waits on anything, D because independent steps parallelize." },
+    cluster_size:{ paths:["path_a","path_b","path_d"], xLabel:"Number of services (cluster size)", xTicks:[4,6,8,10,12,14,16],
+      caption:"The directly comparable sweep to Rudrabhatla (2018, IJACSA). A's slope is roughly +201 ms per added service; B and D are both within ±2 ms per service." },
+    concurrency: { paths:["path_d"], xLabel:"Concurrency level (simultaneous rollbacks)", xTicks:[1,5,10,15,20],
+      caption:"Only path_d has data here: this sweep tests LeaseStore contention, unique to D's election — A and B never held a lease. D's own ratio stays close to flat, 1.00× to about 1.05×." }
+  };
+
+  function switchSweep(key){
+    renderSweepChart(key, SWEEP_META[key], "chart", "legend", "chartCaption", "tooltip", "chartWrap");
+    document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("active", t.dataset.sweep === key); });
+  }
+  document.getElementById("tabs").addEventListener("click", function(e){
+    var btn = e.target.closest(".tab");
+    if (!btn) return;
+    switchSweep(btn.dataset.sweep);
+  });
+  switchSweep("dag_width");
+  initThemeToggle("themeBtn");
+})();
+</script>
+</body>
+</html>
